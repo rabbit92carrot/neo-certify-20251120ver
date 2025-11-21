@@ -30,6 +30,8 @@
 - [ ] **Test-Driven Development**: 테스트 시나리오 우선 작성
 - [ ] **Git Conventional Commits**: feat/fix/docs/test 등 규칙 준수
 - [ ] **Frontend-First Development**: API 호출 전 타입 및 인터페이스 정의
+- [ ] 원칙 8: 작업 범위 100% 완료 (시간 무관)
+- [ ] 원칙 9: Context 메모리 부족 시 사용자 알림
 
 ---
 
@@ -156,14 +158,18 @@ export function ShipmentPage() {
   /**
    * FIFO 할당 알고리즘
    *
-   * PRD 요구사항 (Section 5.2, 15.1):
-   * - 사용기한(expiry_date)이 가까운 Lot부터 우선 할당
-   * - 사용기한이 같으면 제조일(manufacture_date)이 빠른 Lot 우선
-   * - 사용기한이 같고 제조일도 같으면 Lot 생성일(created_at) 기준
+   * PRD 요구사항 (Section 5.2, 15.1) + 보강 작업 업데이트:
+   * - 1차: 제조일(manufacture_date)이 빠른 Lot 우선 (오래된 것 먼저)
+   * - 2차: 사용기한(expiry_date)이 가까운 Lot 우선
+   * - 3차: Virtual Code의 sequence_number 순서 (Lot 내부 순서)
+   * - 4차: Lot 생성일(created_at) 기준
+   *
+   * ⭐ 주의: Virtual Code 단위가 아닌 Lot 단위 정렬입니다.
+   * Lot 내부의 Virtual Code는 sequence_number로 자동 정렬됩니다.
    *
    * @param productId - 제품 ID
    * @param requestedQuantity - 요청 수량
-   * @returns 할당된 Lot 목록 (사용기한 오름차순)
+   * @returns 할당된 Lot 목록 (FIFO 정렬 순서)
    * @throws 재고가 없거나 부족한 경우 에러
    */
   const allocateFIFO = (productId: string, requestedQuantity: number) => {
@@ -176,17 +182,21 @@ export function ShipmentPage() {
       throw new Error('재고가 없습니다.')
     }
 
-    // 2. FIFO 정렬 (PRD 기준: 사용기한 → 제조일 → 생성일)
+    // 2. FIFO 정렬 (4단계: manufacture_date → expiry_date → sequence_number → created_at)
     const sortedInventory = [...productInventory].sort((a, b) => {
-      // 우선순위 1: 사용기한 (오름차순 - 가까운 것부터)
-      const expiryCompare = new Date(a.lot.expiry_date).getTime() - new Date(b.lot.expiry_date).getTime()
-      if (expiryCompare !== 0) return expiryCompare
-
-      // 우선순위 2: 제조일 (오름차순 - 오래된 것부터)
+      // 우선순위 1: 제조일 (오름차순 - 오래된 것부터)
       const mfgCompare = new Date(a.lot.manufacture_date).getTime() - new Date(b.lot.manufacture_date).getTime()
       if (mfgCompare !== 0) return mfgCompare
 
-      // 우선순위 3: Lot 생성일 (오름차순)
+      // 우선순위 2: 사용기한 (오름차순 - 가까운 것부터)
+      const expiryCompare = new Date(a.lot.expiry_date).getTime() - new Date(b.lot.expiry_date).getTime()
+      if (expiryCompare !== 0) return expiryCompare
+
+      // 우선순위 3: sequence_number (Lot 내부 순서, Virtual Code 테이블에서 관리)
+      // Note: 이 단계에서는 Lot 단위 정렬이므로 실제 Virtual Code sequence_number는
+      // 데이터베이스 쿼리 시 자동으로 ORDER BY sequence_number ASC 적용됩니다.
+
+      // 우선순위 4: Lot 생성일 (오름차순)
       return new Date(a.lot.created_at).getTime() - new Date(b.lot.created_at).getTime()
     })
 

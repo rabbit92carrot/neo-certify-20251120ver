@@ -1,8 +1,8 @@
-# Phase 4.5: 거래 이력 조회
+# Phase 5.5: 병원 이력 조회
 
 ## 📋 Overview
 
-**Phase 4.5**는 유통사의 거래 이력 조회 기능을 구현합니다. 입고, 출고, 반품 이력을 통합하여 조회합니다.
+**Phase 5.5**는 병원의 거래 이력 조회 기능을 구현합니다. 입고, 사용, 폐기 이력을 통합하여 조회합니다.
 
 ---
 
@@ -22,34 +22,21 @@
 
 ## 📦 Work Content
 
-### DistributorHistoryPage 컴포넌트
+### HospitalHistoryPage 컴포넌트
 
-**파일 경로**: `src/pages/distributor/DistributorHistoryPage.tsx`
+**파일 경로**: `src/pages/hospital/HospitalHistoryPage.tsx`
 
 ```typescript
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
 import { Card } from '@/components/ui/card'
 
-type TransactionType = 'receiving' | 'shipment' | 'return'
+type TransactionType = 'receiving' | 'usage' | 'disposal'
 
 interface Transaction {
   id: string
@@ -58,10 +45,10 @@ interface Transaction {
   lotNumber: string
   productName: string
   quantity: number
-  counterparty: string
+  details: string
 }
 
-export function DistributorHistoryPage() {
+export function HospitalHistoryPage() {
   const { user } = useAuth()
   const [typeFilter, setTypeFilter] = useState<TransactionType | 'all'>('all')
 
@@ -79,17 +66,13 @@ export function DistributorHistoryPage() {
     enabled: !!user,
   })
 
-  // Fetch receivings (incoming shipments)
+  // Fetch receivings
   const { data: receivings } = useQuery({
     queryKey: ['receivings', userData?.organization_id],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('shipments')
-        .select(`
-          *,
-          lot:lots(lot_number, product:products(name)),
-          from_organization:organizations!shipments_from_organization_id_fkey(name)
-        `)
+        .select('*, lot:lots(lot_number, product:products(name))')
         .eq('to_organization_id', userData!.organization_id)
         .eq('status', 'completed')
         .order('received_date', { ascending: false })
@@ -102,59 +85,55 @@ export function DistributorHistoryPage() {
         lotNumber: s.lot.lot_number,
         productName: s.lot.product.name,
         quantity: s.quantity,
-        counterparty: s.from_organization.name,
+        details: '입고',
       }))
     },
     enabled: !!userData?.organization_id,
   })
 
-  // Fetch shipments (outgoing)
-  const { data: shipments } = useQuery({
-    queryKey: ['shipments', userData?.organization_id],
+  // Fetch usages
+  const { data: usages } = useQuery({
+    queryKey: ['usages', userData?.organization_id],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('shipments')
-        .select(`
-          *,
-          lot:lots(lot_number, product:products(name)),
-          to_organization:organizations!shipments_to_organization_id_fkey(name)
-        `)
-        .eq('from_organization_id', userData!.organization_id)
-        .order('shipment_date', { ascending: false })
-
-      if (error) throw error
-      return data.map((s: any) => ({
-        id: s.id,
-        type: 'shipment' as TransactionType,
-        date: s.shipment_date,
-        lotNumber: s.lot.lot_number,
-        productName: s.lot.product.name,
-        quantity: s.quantity,
-        counterparty: s.to_organization?.name ?? '-',
-      }))
-    },
-    enabled: !!userData?.organization_id,
-  })
-
-  // Fetch returns
-  const { data: returns } = useQuery({
-    queryKey: ['returns', userData?.organization_id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('returns')
+        .from('usages')
         .select('*, lot:lots(lot_number, product:products(name))')
         .eq('organization_id', userData!.organization_id)
-        .order('created_at', { ascending: false })
+        .order('used_at', { ascending: false })
 
       if (error) throw error
-      return data.map((r: any) => ({
-        id: r.id,
-        type: 'return' as TransactionType,
-        date: r.created_at.split('T')[0],
-        lotNumber: r.lot.lot_number,
-        productName: r.lot.product.name,
-        quantity: r.quantity,
-        counterparty: '반품',
+      return data.map((u: any) => ({
+        id: u.id,
+        type: 'usage' as TransactionType,
+        date: u.used_at.split('T')[0],
+        lotNumber: u.lot.lot_number,
+        productName: u.lot.product.name,
+        quantity: u.quantity,
+        details: `환자: ${u.patient_id}`,
+      }))
+    },
+    enabled: !!userData?.organization_id,
+  })
+
+  // Fetch disposals
+  const { data: disposals } = useQuery({
+    queryKey: ['disposals', userData?.organization_id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('disposals')
+        .select('*, lot:lots(lot_number, product:products(name))')
+        .eq('organization_id', userData!.organization_id)
+        .order('disposed_at', { ascending: false })
+
+      if (error) throw error
+      return data.map((d: any) => ({
+        id: d.id,
+        type: 'disposal' as TransactionType,
+        date: d.disposed_at.split('T')[0],
+        lotNumber: d.lot.lot_number,
+        productName: d.lot.product.name,
+        quantity: d.quantity,
+        details: `폐기 (${d.reason})`,
       }))
     },
     enabled: !!userData?.organization_id,
@@ -162,8 +141,8 @@ export function DistributorHistoryPage() {
 
   const allTransactions: Transaction[] = [
     ...(receivings ?? []),
-    ...(shipments ?? []),
-    ...(returns ?? []),
+    ...(usages ?? []),
+    ...(disposals ?? []),
   ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
 
   const filteredTransactions =
@@ -173,7 +152,7 @@ export function DistributorHistoryPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-gray-900">거래 이력</h1>
-        <p className="mt-1 text-sm text-gray-600">입고, 출고, 반품 이력을 조회합니다</p>
+        <p className="mt-1 text-sm text-gray-600">입고, 사용, 폐기 이력을 조회합니다</p>
       </div>
 
       <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v as TransactionType | 'all')}>
@@ -183,12 +162,12 @@ export function DistributorHistoryPage() {
         <SelectContent>
           <SelectItem value="all">전체</SelectItem>
           <SelectItem value="receiving">입고</SelectItem>
-          <SelectItem value="shipment">출고</SelectItem>
-          <SelectItem value="return">반품</SelectItem>
+          <SelectItem value="usage">사용</SelectItem>
+          <SelectItem value="disposal">폐기</SelectItem>
         </SelectContent>
       </Select>
 
-      <Card>
+      <Card className="p-6">
         <Table>
           <TableHeader>
             <TableRow>
@@ -197,7 +176,7 @@ export function DistributorHistoryPage() {
               <TableHead>제품명</TableHead>
               <TableHead>Lot 번호</TableHead>
               <TableHead>수량</TableHead>
-              <TableHead>거래처</TableHead>
+              <TableHead>상세</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -216,18 +195,18 @@ export function DistributorHistoryPage() {
                       variant={
                         txn.type === 'receiving'
                           ? 'default'
-                          : txn.type === 'shipment'
+                          : txn.type === 'usage'
                             ? 'secondary'
                             : 'destructive'
                       }
                     >
-                      {txn.type === 'receiving' ? '입고' : txn.type === 'shipment' ? '출고' : '반품'}
+                      {txn.type === 'receiving' ? '입고' : txn.type === 'usage' ? '사용' : '폐기'}
                     </Badge>
                   </TableCell>
                   <TableCell>{txn.productName}</TableCell>
                   <TableCell className="font-mono text-sm">{txn.lotNumber}</TableCell>
                   <TableCell>{txn.quantity.toLocaleString()}개</TableCell>
-                  <TableCell>{txn.counterparty}</TableCell>
+                  <TableCell className="text-sm text-gray-600">{txn.details}</TableCell>
                 </TableRow>
               ))
             )}
@@ -244,11 +223,12 @@ export function DistributorHistoryPage() {
 ## 🔄 Git Commit Message
 
 ```bash
-feat(distributor): add distributor history page
+feat(hospital): add hospital history page
 
-- Implement DistributorHistoryPage with receiving/shipment/return records
-- Add type filter (receiving/shipment/return/all)
-- Combine all transaction types into unified view
+- Implement HospitalHistoryPage with receiving/usage/disposal records
+- Add type filter (receiving/usage/disposal/all)
+- Display patient ID in usage records
+- Display disposal reason in disposal records
 
 Co-Authored-By: Claude <noreply@anthropic.com>
 ```
@@ -257,4 +237,4 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 
 ## ⏭️ Next Steps
 
-**다음 단계**: [Phase 4.6 - 통합 테스트](phase-4.6-integration-tests.md)
+**다음 단계**: [Phase 5.6 - 통합 테스트](phase-5.6-integration-tests.md)

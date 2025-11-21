@@ -16,6 +16,8 @@
 - [x] Clean Code: `.gitignore` 파일 정리
 - [ ] 테스트 작성: 해당 없음 (인프라)
 - [x] Git commit: Conventional Commits 준수
+- [ ] 원칙 8: 작업 범위 100% 완료 (시간 무관)
+- [ ] 원칙 9: Context 메모리 부족 시 사용자 알림
 
 ---
 

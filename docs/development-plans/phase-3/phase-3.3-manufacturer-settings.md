@@ -19,6 +19,16 @@
 - **UI 라이브러리**: shadcn/ui (Form, Input, Card, Alert)
 - **라우팅**: React Router v6
 
+### ⚠️ MVP 정책: 무제한 변경 허용
+
+**주의**: MVP 단계에서는 제조사 설정을 **무제한으로 변경할 수 있습니다**.
+
+- **이유**: 기능 테스트 및 검증을 위해 설정 변경 제한을 제거
+- **실서비스 적용 시**: 초기 설정 후 잠금 기능 추가 필요
+  - Lot 생산 이력이 있는 경우 설정 변경 불가
+  - 또는 관리자 승인 후에만 변경 가능
+- **현재 구현**: 언제든지 설정 수정 가능 (Edit 버튼 항상 활성화)
+
 ---
 
 ## 🎯 Development Principles Checklist
@@ -30,6 +40,8 @@
 - [ ] **Test-Driven Development**: 테스트 시나리오 우선 작성
 - [ ] **Git Conventional Commits**: feat/fix/docs/test 등 규칙 준수
 - [ ] **Frontend-First Development**: API 호출 전 타입 및 인터페이스 정의
+- [ ] 원칙 8: 작업 범위 100% 완료 (시간 무관)
+- [ ] 원칙 9: Context 메모리 부족 시 사용자 알림
 
 ---
 

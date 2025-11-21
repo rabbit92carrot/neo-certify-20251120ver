@@ -10,6 +10,41 @@
 
 **예상 소요 시간**: 1-2일
 
+### ⭐ 보강 작업 업데이트: Lock 범위 명확화
+
+**Lock 범위**: `organization_id + product_id` 조합
+
+- **영향을 받는 경우** (Lock 대기 발생):
+  - 동일 조직(organization_id)에서 동일 제품(product_id)의 Lot 생성 시
+  - 예: 조직 A가 제품 X의 Lot 생성 중 → 조직 A가 제품 X의 다른 Lot 생성 시 대기
+
+- **영향을 받지 않는 경우** (병렬 실행):
+  - 동일 조직의 **다른 제품** Lot 생성
+  - **다른 조직**의 동일 제품 Lot 생성
+  - 동일 조직의 다른 작업 (출고, 입고, 시술 등)
+
+- **예상 대기 시간**:
+  - 일반적인 경우: 100ms 이하
+  - 대량 생산 시 (1000개 이상): 최대 2초
+
+**Lock 함수**:
+- `acquire_org_product_lock(p_organization_id, p_product_id)`
+- `release_org_product_lock(p_organization_id, p_product_id)`
+
+---
+
+## 🎯 Development Principles Checklist
+
+- [ ] **SSOT (Single Source of Truth)**: 모든 리터럴은 constants에서 관리
+- [ ] **No Magic Numbers**: 하드코딩된 숫자 없이 상수 사용
+- [ ] **No 'any' Type**: 모든 타입을 명시적으로 정의
+- [ ] **Clean Code**: 함수는 단일 책임, 명확한 변수명
+- [ ] **Test-Driven Development**: 테스트 시나리오 우선 작성
+- [ ] **Git Conventional Commits**: feat/fix/docs/test 등 규칙 준수
+- [ ] **Frontend-First Development**: API 호출 전 타입 및 인터페이스 정의
+- [ ] 원칙 8: 작업 범위 100% 완료 (시간 무관)
+- [ ] 원칙 9: Context 메모리 부족 시 사용자 알림
+
 ---
 
 ## 🎯 문제 상황

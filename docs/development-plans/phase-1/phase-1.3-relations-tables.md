@@ -16,6 +16,8 @@
 - [x] Clean Code: 명확한 테이블/컬럼명
 - [ ] 테스트 작성: Migration SQL 검증 테스트
 - [ ] Git commit: Migration 파일 커밋
+- [ ] 원칙 8: 작업 범위 100% 완료 (시간 무관)
+- [ ] 원칙 9: Context 메모리 부족 시 사용자 알림
 
 ---
 
@@ -53,10 +55,12 @@ CREATE TABLE virtual_codes (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   code VARCHAR(50) NOT NULL UNIQUE,
   lot_id UUID NOT NULL REFERENCES lots(id) ON DELETE CASCADE,
+  sequence_number INTEGER NOT NULL,  -- ⭐ FIFO 내부 정렬용 (Lot 내 순서)
   status TEXT NOT NULL CHECK (status IN ('IN_STOCK', 'PENDING', 'USED', 'DISPOSED')) DEFAULT 'IN_STOCK',
   owner_type TEXT NOT NULL CHECK (owner_type IN ('organization', 'patient')),
   owner_id TEXT NOT NULL,  -- UUID (organization) 또는 전화번호 (patient)
   pending_to UUID REFERENCES organizations(id) ON DELETE SET NULL,  -- 출고 승인 대기 중인 수신자
+  previous_owner_id UUID REFERENCES organizations(id) ON DELETE SET NULL,  -- ⭐ 반품 추적용 (이전 소유자)
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -67,14 +71,18 @@ CREATE INDEX idx_virtual_codes_lot ON virtual_codes(lot_id);
 CREATE INDEX idx_virtual_codes_status ON virtual_codes(status);
 CREATE INDEX idx_virtual_codes_owner ON virtual_codes(owner_type, owner_id);
 CREATE INDEX idx_virtual_codes_pending ON virtual_codes(pending_to) WHERE pending_to IS NOT NULL;
+CREATE INDEX idx_vc_fifo ON virtual_codes(lot_id, sequence_number);  -- ⭐ FIFO 정렬용 복합 인덱스
+CREATE INDEX idx_vc_previous_owner ON virtual_codes(previous_owner_id) WHERE previous_owner_id IS NOT NULL;  -- ⭐ 반품 조회용
 
 -- Comments
-COMMENT ON TABLE virtual_codes IS '가상 식별코드 (제품 추적 단위)';
-COMMENT ON COLUMN virtual_codes.code IS '고유 식별 코드 (UUID 또는 단축 형식)';
+COMMENT ON TABLE virtual_codes IS '가상 식별코드 (제품 추적 단위) - 1대다 모델: 하나의 Lot에 quantity개의 Virtual Code';
+COMMENT ON COLUMN virtual_codes.code IS '고유 식별 코드 (12자리 영숫자)';
+COMMENT ON COLUMN virtual_codes.sequence_number IS 'FIFO 내부 정렬용 순서 번호 (1, 2, 3, ..., quantity)';
 COMMENT ON COLUMN virtual_codes.status IS 'IN_STOCK: 재고, PENDING: 출고 대기, USED: 시술 완료, DISPOSED: 폐기';
 COMMENT ON COLUMN virtual_codes.owner_type IS 'organization: 조직 보유, patient: 환자 시술';
 COMMENT ON COLUMN virtual_codes.owner_id IS 'organization: UUID, patient: 전화번호 (01012345678)';
 COMMENT ON COLUMN virtual_codes.pending_to IS '출고 대기 중인 수신 조직 (PENDING 상태일 때만 설정)';
+COMMENT ON COLUMN virtual_codes.previous_owner_id IS '반품 추적용 이전 소유자 (출고 시 자동 설정, 반품 시 복원)';
 
 -- =============================================
 -- TABLE: patients
@@ -242,16 +250,249 @@ COMMENT ON COLUMN notification_messages.type IS 'AUTHENTICATION: 인증 발급, 
 COMMENT ON COLUMN notification_messages.is_sent IS '발송 완료 여부';
 
 -- =============================================
--- TRIGGERS: Apply updated_at auto-update
+-- FUNCTIONS: Business Logic Functions
 -- =============================================
 
-CREATE TRIGGER update_virtual_codes_updated_at 
+-- Virtual Code 생성 함수 (고유성 보장)
+CREATE OR REPLACE FUNCTION generate_unique_virtual_code()
+RETURNS TEXT AS $$
+DECLARE
+  v_code TEXT;
+  v_exists BOOLEAN;
+  v_attempt INTEGER := 0;
+  v_max_attempts INTEGER := 10;
+BEGIN
+  LOOP
+    -- 12자리 영숫자 코드 생성 (MD5 기반)
+    v_code := UPPER(SUBSTRING(MD5(RANDOM()::TEXT || CLOCK_TIMESTAMP()::TEXT) FROM 1 FOR 12));
+
+    -- 중복 확인
+    SELECT EXISTS(SELECT 1 FROM virtual_codes WHERE code = v_code) INTO v_exists;
+    EXIT WHEN NOT v_exists;
+
+    -- 재시도 제한
+    v_attempt := v_attempt + 1;
+    IF v_attempt >= v_max_attempts THEN
+      RAISE EXCEPTION 'Failed to generate unique virtual code after % attempts', v_max_attempts;
+    END IF;
+  END LOOP;
+
+  RETURN v_code;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION generate_unique_virtual_code IS 'Virtual Code 생성 (12자리 영숫자, 고유성 보장)';
+
+-- Lot 생산 트랜잭션 함수 (Lot + quantity개의 Virtual Code 생성)
+CREATE OR REPLACE FUNCTION create_lot_with_virtual_codes(
+  p_product_id UUID,
+  p_lot_number TEXT,
+  p_manufacture_date DATE,
+  p_expiry_date DATE,
+  p_quantity INTEGER,
+  p_organization_id UUID
+)
+RETURNS UUID AS $$
+DECLARE
+  v_lot_id UUID;
+  i INTEGER;
+BEGIN
+  -- Lot 생성
+  INSERT INTO lots (product_id, lot_number, manufacture_date, expiry_date, quantity)
+  VALUES (p_product_id, p_lot_number, p_manufacture_date, p_expiry_date, p_quantity)
+  RETURNING id INTO v_lot_id;
+
+  -- quantity개의 Virtual Code 생성 (sequence_number 할당)
+  FOR i IN 1..p_quantity LOOP
+    INSERT INTO virtual_codes (
+      lot_id,
+      sequence_number,
+      status,
+      owner_type,
+      owner_id
+    ) VALUES (
+      v_lot_id,
+      i,  -- sequence_number: 1, 2, 3, ..., quantity
+      'IN_STOCK',
+      'organization',
+      p_organization_id
+    );
+  END LOOP;
+
+  RETURN v_lot_id;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION create_lot_with_virtual_codes IS 'Lot 생산 트랜잭션 (Lot + quantity개의 Virtual Code 생성, sequence_number 자동 할당)';
+
+-- 출고 트랜잭션 함수 (즉시 소유권 이전 모델)
+CREATE OR REPLACE FUNCTION shipment_transaction(
+  p_virtual_code_ids UUID[],
+  p_from_org_id UUID,
+  p_to_org_id UUID,
+  p_to_org_type TEXT  -- 'DISTRIBUTOR' | 'HOSPITAL'
+)
+RETURNS VOID AS $$
+BEGIN
+  -- 유통사로 출고: PENDING 상태 (즉시 소유권 이전)
+  IF p_to_org_type = 'DISTRIBUTOR' THEN
+    UPDATE virtual_codes
+    SET
+      status = 'PENDING',
+      owner_id = p_to_org_id::TEXT,       -- 즉시 소유권 이전
+      previous_owner_id = p_from_org_id,  -- 이전 소유자 기록
+      pending_to = p_to_org_id,
+      updated_at = NOW()
+    WHERE id = ANY(p_virtual_code_ids)
+      AND owner_id = p_from_org_id::TEXT
+      AND status = 'IN_STOCK';
+
+  -- 병원으로 출고: 즉시 IN_STOCK (Pending 없음)
+  ELSIF p_to_org_type = 'HOSPITAL' THEN
+    UPDATE virtual_codes
+    SET
+      status = 'IN_STOCK',
+      owner_id = p_to_org_id::TEXT,
+      previous_owner_id = p_from_org_id,
+      pending_to = NULL,
+      updated_at = NOW()
+    WHERE id = ANY(p_virtual_code_ids)
+      AND owner_id = p_from_org_id::TEXT
+      AND status = 'IN_STOCK';
+  END IF;
+
+  -- History 기록 (간략화 - 실제로는 INSERT INTO history 필요)
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION shipment_transaction IS '출고 트랜잭션 (유통사: PENDING+즉시 소유권 이전, 병원: 즉시 IN_STOCK)';
+
+-- 시술 트랜잭션 함수
+CREATE OR REPLACE FUNCTION treatment_transaction(
+  p_virtual_code_ids UUID[],
+  p_hospital_id UUID,
+  p_patient_phone TEXT,
+  p_treatment_date DATE
+)
+RETURNS UUID AS $$
+DECLARE
+  v_treatment_id UUID;
+  v_code_id UUID;
+BEGIN
+  -- Treatment Record 생성
+  INSERT INTO treatment_records (hospital_id, patient_phone, treatment_date)
+  VALUES (p_hospital_id, p_patient_phone, p_treatment_date)
+  RETURNING id INTO v_treatment_id;
+
+  -- Virtual Code 상태 변경 (IN_STOCK → USED)
+  UPDATE virtual_codes
+  SET
+    status = 'USED',
+    owner_type = 'patient',
+    owner_id = p_patient_phone,
+    updated_at = NOW()
+  WHERE id = ANY(p_virtual_code_ids)
+    AND owner_id = p_hospital_id::TEXT
+    AND status = 'IN_STOCK';
+
+  -- Treatment Details 생성
+  FOREACH v_code_id IN ARRAY p_virtual_code_ids LOOP
+    INSERT INTO treatment_details (treatment_id, virtual_code_id)
+    VALUES (v_treatment_id, v_code_id);
+  END LOOP;
+
+  -- Notification 메시지 생성
+  INSERT INTO notification_messages (type, patient_phone, content, is_sent)
+  VALUES (
+    'AUTHENTICATION',
+    p_patient_phone,
+    '[네오인증서] 정품 인증이 완료되었습니다.',
+    false
+  );
+
+  -- History 기록 (간략화)
+
+  RETURN v_treatment_id;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION treatment_transaction IS '시술 트랜잭션 (Virtual Code USED 상태 변경 + Treatment Record + Notification 생성)';
+
+-- 전화번호 정규화 함수
+CREATE OR REPLACE FUNCTION normalize_phone_number(p_phone TEXT)
+RETURNS TEXT AS $$
+BEGIN
+  -- 숫자만 추출
+  RETURN regexp_replace(p_phone, '\D', '', 'g');
+END;
+$$ LANGUAGE plpgsql IMMUTABLE;
+
+COMMENT ON FUNCTION normalize_phone_number IS '전화번호 정규화 (하이픈 제거, 숫자만)';
+
+-- 전화번호 정규화 트리거 함수
+CREATE OR REPLACE FUNCTION normalize_phone_trigger()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.phone_number := normalize_phone_number(NEW.phone_number);
+
+  -- 11자리 검증
+  IF LENGTH(NEW.phone_number) != 11 THEN
+    RAISE EXCEPTION 'Phone number must be 11 digits, got: %', NEW.phone_number;
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION normalize_phone_trigger IS '전화번호 정규화 트리거 (INSERT/UPDATE 시 자동 실행)';
+
+-- Advisory Lock 함수들 (Concurrency 제어)
+CREATE OR REPLACE FUNCTION acquire_org_product_lock(
+  p_organization_id UUID,
+  p_product_id UUID
+)
+RETURNS VOID AS $$
+BEGIN
+  -- organization_id:product_id 조합으로 Lock 키 생성
+  PERFORM pg_advisory_lock(
+    hashtext(p_organization_id::TEXT || ':' || p_product_id::TEXT)
+  );
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION acquire_org_product_lock IS 'Advisory Lock 획득 (organization + product 범위)';
+
+CREATE OR REPLACE FUNCTION release_org_product_lock(
+  p_organization_id UUID,
+  p_product_id UUID
+)
+RETURNS VOID AS $$
+BEGIN
+  PERFORM pg_advisory_unlock(
+    hashtext(p_organization_id::TEXT || ':' || p_product_id::TEXT)
+  );
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION release_org_product_lock IS 'Advisory Lock 해제 (organization + product 범위)';
+
+-- =============================================
+-- TRIGGERS: Auto-update and Normalization
+-- =============================================
+
+-- Updated_at 자동 업데이트 트리거
+CREATE TRIGGER update_virtual_codes_updated_at
   BEFORE UPDATE ON virtual_codes
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER update_return_requests_updated_at 
+CREATE TRIGGER update_return_requests_updated_at
   BEFORE UPDATE ON return_requests
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- 전화번호 정규화 트리거 (patients 테이블)
+CREATE TRIGGER normalize_patient_phone
+  BEFORE INSERT OR UPDATE ON patients
+  FOR EACH ROW EXECUTE FUNCTION normalize_phone_trigger();
 
 -- Note: 다른 테이블들은 updated_at 컬럼이 없으므로 트리거 미적용
 ```

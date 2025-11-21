@@ -30,6 +30,8 @@
 - [ ] **Test-Driven Development**: 테스트 시나리오 우선 작성
 - [ ] **Git Conventional Commits**: feat/fix/docs/test 등 규칙 준수
 - [ ] **Frontend-First Development**: API 호출 전 타입 및 인터페이스 정의
+- [ ] 원칙 8: 작업 범위 100% 완료 (시간 무관)
+- [ ] 원칙 9: Context 메모리 부족 시 사용자 알림
 
 ---
 
@@ -77,7 +79,9 @@ import { SUCCESS_MESSAGES, ERROR_MESSAGES } from '@/constants/messages'
 import { ROUTES } from '@/constants/routes'
 import { PRODUCT_STATUS } from '@/constants/status'
 import { TIMEZONE } from '@/constants/datetime'
-import type { Product, ManufacturerSettings, Lot, Inventory } from '@/types/database'
+import { DATABASE_CONSTANTS, DATABASE_FUNCTIONS } from '@/constants/database' // ⭐ 신규
+import { LOCK_ERROR_MESSAGES } from '@/constants/locks' // ⭐ 신규
+import type { Product, ManufacturerSettings, Lot } from '@/types/database'
 
 const lotProductionSchema = z.object({
   product_id: z.string().min(1, '제품을 선택해주세요.'),
@@ -205,60 +209,73 @@ export function LotProductionPage() {
     return `${settings.lot_prefix}${modelNumber}${sequence}`
   }
 
-  // Generate Virtual Code (unique 12-digit code)
-  const generateVirtualCode = (): string => {
-    const timestamp = Date.now().toString().slice(-8) // Last 8 digits of timestamp
-    const random = Math.floor(Math.random() * 10000)
-      .toString()
-      .padStart(4, '0') // 4 random digits
-    return `${timestamp}${random}`
-  }
+  // ⭐ 1대다 모델: Virtual Code 생성 제거 (PostgreSQL 함수에서 자동 생성)
+  // Virtual Code는 이제 lots가 아닌 virtual_codes 테이블에 저장되며,
+  // quantity개가 자동으로 생성됩니다 (sequence_number: 1, 2, 3, ..., quantity)
 
-  // Create lot production mutation
+  // Create lot production mutation (트랜잭션 함수 사용)
   const createLotMutation = useMutation({
     mutationFn: async (data: LotProductionFormData) => {
       if (!settings) {
         throw new Error(ERROR_MESSAGES.MANUFACTURER_SETTINGS.NOT_CONFIGURED)
       }
 
-      // Generate lot number
-      const lotNumber = await generateLotNumber(data.product_id, settings)
+      if (!userData?.organization_id) {
+        throw new Error(ERROR_MESSAGES.AUTH.UNAUTHORIZED)
+      }
 
-      // Generate virtual code
-      const virtualCode = generateVirtualCode()
+      // ⭐ Advisory Lock 획득 (동시 생산 방지: 동일 조직 + 동일 제품)
+      const { error: lockError } = await supabase.rpc(
+        DATABASE_FUNCTIONS.ACQUIRE_ORG_PRODUCT_LOCK,
+        {
+          p_organization_id: userData.organization_id,
+          p_product_id: data.product_id,
+        }
+      )
 
-      // Calculate expiry date
-      const expiryDate = addMonths(data.production_date, settings.expiry_months)
+      if (lockError) {
+        throw new Error(LOCK_ERROR_MESSAGES.TIMEOUT)
+      }
 
-      // Create lot
-      const { data: newLot, error: lotError } = await supabase
-        .from('lots')
-        .insert({
-          product_id: data.product_id,
-          lot_number: lotNumber,
-          virtual_code: virtualCode,
-          production_date: format(data.production_date, 'yyyy-MM-dd'),
-          expiry_date: format(expiryDate, 'yyyy-MM-dd'),
-          quantity: data.quantity,
+      try {
+        // Generate lot number
+        const lotNumber = await generateLotNumber(data.product_id, settings)
+
+        // Calculate expiry date
+        const expiryDate = addMonths(data.production_date, settings.expiry_months)
+
+        // ⭐ 트랜잭션 함수 호출: Lot 생성 + quantity개의 Virtual Code 자동 생성
+        const { data: lotId, error: lotError } = await supabase.rpc(
+          DATABASE_FUNCTIONS.CREATE_LOT_WITH_CODES,
+          {
+            p_product_id: data.product_id,
+            p_lot_number: lotNumber,
+            p_manufacture_date: format(data.production_date, 'yyyy-MM-dd'),
+            p_expiry_date: format(expiryDate, 'yyyy-MM-dd'),
+            p_quantity: data.quantity,
+            p_organization_id: userData.organization_id,
+          }
+        )
+
+        if (lotError) throw lotError
+
+        // Lot 정보 조회 (반환용)
+        const { data: newLot, error: fetchError } = await supabase
+          .from(DATABASE_CONSTANTS.TABLES.LOTS)
+          .select('*')
+          .eq('id', lotId)
+          .single()
+
+        if (fetchError) throw fetchError
+
+        return newLot as Lot
+      } finally {
+        // ⭐ Lock 해제 (반드시 실행)
+        await supabase.rpc(DATABASE_FUNCTIONS.RELEASE_ORG_PRODUCT_LOCK, {
+          p_organization_id: userData.organization_id,
+          p_product_id: data.product_id,
         })
-        .select()
-        .single()
-
-      if (lotError) throw lotError
-
-      // Create initial inventory
-      const { error: inventoryError } = await supabase
-        .from('inventory')
-        .insert({
-          lot_id: newLot.id,
-          organization_id: userData!.organization_id,
-          current_quantity: data.quantity,
-          last_updated_by: user!.id,
-        })
-
-      if (inventoryError) throw inventoryError
-
-      return newLot as Lot
+      }
     },
     onSuccess: (lot) => {
       queryClient.invalidateQueries({ queryKey: ['lots'] })

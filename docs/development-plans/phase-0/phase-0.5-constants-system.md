@@ -16,6 +16,8 @@
 - [x] Clean Code: 명확한 네이밍
 - [ ] 테스트 작성: Constants 값 검증 테스트
 - [ ] Git commit: 파일별 커밋
+- [ ] 원칙 8: 작업 범위 100% 완료 (시간 무관)
+- [ ] 원칙 9: Context 메모리 부족 시 사용자 알림
 
 ---
 
@@ -83,6 +85,53 @@ export const HISTORY_ACTION = {
 } as const
 
 export type HistoryAction = typeof HISTORY_ACTION[keyof typeof HISTORY_ACTION]
+
+// 상태값 UI 라벨 (한글 표시용)
+export const VIRTUAL_CODE_STATUS_LABELS = {
+  [VIRTUAL_CODE_STATUS.IN_STOCK]: '재고',
+  [VIRTUAL_CODE_STATUS.PENDING]: '출고 대기',
+  [VIRTUAL_CODE_STATUS.USED]: '사용됨',
+  [VIRTUAL_CODE_STATUS.DISPOSED]: '폐기',
+} as const
+
+export const ORGANIZATION_STATUS_LABELS = {
+  [ORGANIZATION_STATUS.PENDING_APPROVAL]: '승인 대기',
+  [ORGANIZATION_STATUS.ACTIVE]: '활성',
+  [ORGANIZATION_STATUS.INACTIVE]: '비활성',
+  [ORGANIZATION_STATUS.DELETED]: '삭제됨',
+} as const
+
+export const ORGANIZATION_TYPE_LABELS = {
+  [ORGANIZATION_TYPE.MANUFACTURER]: '제조사',
+  [ORGANIZATION_TYPE.DISTRIBUTOR]: '유통사',
+  [ORGANIZATION_TYPE.HOSPITAL]: '병원',
+} as const
+
+export const RETURN_STATUS_LABELS = {
+  [RETURN_STATUS.PENDING]: '대기',
+  [RETURN_STATUS.APPROVED]: '승인됨',
+  [RETURN_STATUS.REJECTED]: '거부됨',
+} as const
+
+export const HISTORY_ACTION_LABELS = {
+  [HISTORY_ACTION.PRODUCTION]: '생산',
+  [HISTORY_ACTION.SHIPMENT]: '출고',
+  [HISTORY_ACTION.RECEIVE]: '입고',
+  [HISTORY_ACTION.TREATMENT]: '시술',
+  [HISTORY_ACTION.RECALL]: '회수',
+  [HISTORY_ACTION.RETURN]: '반품',
+  [HISTORY_ACTION.DISPOSE]: '폐기',
+} as const
+
+/**
+ * 상태값 라벨 조회 헬퍼 함수
+ */
+export function getStatusLabel<T extends string>(
+  status: T,
+  labelMap: Record<T, string>
+): string {
+  return labelMap[status] || status
+}
 ```
 
 ### 2. 역할 및 권한 (roles.ts)
@@ -325,7 +374,137 @@ export const DATE_FORMATS = {
 } as const
 ```
 
-### 6. 중앙 Export (index.ts)
+### 6. 데이터베이스 상수 (database.ts)
+
+**src/constants/database.ts** - **상세 문서**: [constants-database.md](./constants-database.md)
+
+**요약**:
+```typescript
+// 테이블명, 컬럼명, 함수명, 인덱스명
+export const DATABASE_CONSTANTS = {
+  TABLES: { ORGANIZATIONS, USERS, PRODUCTS, LOTS, VIRTUAL_CODES, ... },
+  COLUMNS: {
+    VIRTUAL_CODES: { ID, CODE, LOT_ID, SEQUENCE_NUMBER, PREVIOUS_OWNER_ID, ... },
+    LOTS: { MANUFACTURE_DATE, EXPIRY_DATE, QUANTITY, ... },
+    ...
+  },
+  INDEXES: { VIRTUAL_CODES_FIFO, VIRTUAL_CODES_PREVIOUS_OWNER, ... },
+} as const
+
+export const DATABASE_FUNCTIONS = {
+  GENERATE_VIRTUAL_CODE, CREATE_LOT_WITH_CODES,
+  SHIPMENT_TRANSACTION, TREATMENT_TRANSACTION,
+  NORMALIZE_PHONE, ACQUIRE_ORG_PRODUCT_LOCK, ...
+} as const
+```
+
+### 7. 비즈니스 로직 상수 (business-logic.ts)
+
+**src/constants/business-logic.ts** - **상세 문서**: [constants-business-logic.md](./constants-business-logic.md)
+
+**요약**:
+```typescript
+// Virtual Code 형식 (12자리)
+export const VIRTUAL_CODE_FORMAT = {
+  TOTAL_LENGTH: 12,
+  DISPLAY_FORMAT: { SEPARATOR: '-', GROUPS: [4, 4, 4] },
+} as const
+
+// FIFO 정렬 규칙 (4단계)
+export const FIFO_SORT = {
+  PRIMARY: { FIELD: 'manufacture_date', ORDER: 'ASC' },
+  SECONDARY: { FIELD: 'expiry_date', ORDER: 'ASC' },
+  TERTIARY: { FIELD: 'sequence_number', ORDER: 'ASC' },
+  FALLBACK: { FIELD: 'created_at', ORDER: 'ASC' },
+} as const
+
+// 전화번호 형식 (정규화)
+// 주의: 정규식은 validation.ts에서 import
+import { REGEX } from './validation'
+
+export const PHONE_FORMAT = {
+  INPUT_REGEX: REGEX.PHONE_INPUT,         // validation.ts 참조
+  NORMALIZED_REGEX: REGEX.PHONE_NORMALIZED, // validation.ts 참조
+  NORMALIZED_LENGTH: 11,
+  COUNTRY_CODE: '+82',
+  REMOVE_PATTERN: /[^0-9]/g,
+  DISPLAY_FORMAT: { SEPARATOR: '-', PATTERN: 'XXX-XXXX-XXXX' },
+} as const
+
+// 시간 변환 상수 (매직 넘버 제거)
+export const TIME_CONVERSIONS = {
+  SECOND_TO_MS: 1000,
+  MINUTE_TO_SECONDS: 60,
+  HOUR_TO_MINUTES: 60,
+  DAY_TO_HOURS: 24,
+  HOUR_TO_MS: 60 * 60 * 1000,  // getter로 계산
+  DAY_TO_MS: 24 * 60 * 60 * 1000,  // getter로 계산
+} as const
+
+// Recall 규칙 (24시간)
+export const RECALL_RULES = {
+  WINDOW_HOURS: 24,
+  WINDOW_MS: 24 * TIME_CONVERSIONS.HOUR_TO_MS,  // 매직 넘버 제거
+  isRecallable: (treatmentDate: string | Date): boolean => { ... },
+} as const
+
+// Lot 번호 형식
+export const LOT_NUMBER_FORMAT = {
+  DEFAULT_PREFIX: 'ND',
+  MODEL_DIGITS: { MIN: 3, MAX: 10 },
+  DATE_FORMAT: 'yyMMdd',
+  generate: (prefix, modelNumber, date) => { ... },
+} as const
+
+// 제조사 설정 기본값
+export const MANUFACTURER_SETTINGS_DEFAULTS = {
+  LOT_PREFIX: 'ND',
+  LOT_MODEL_DIGITS: 5,
+  LOT_DATE_FORMAT: 'yymmdd',
+  EXPIRY_MONTHS: 24,
+  EXPIRY_STEP: 6,
+  EXPIRY_MIN_MONTHS: 6,
+  EXPIRY_MAX_MONTHS: 36,
+} as const
+
+// 사용기한 검증 함수
+export function isValidExpiryMonths(expiryMonths: number): boolean { ... }
+export function getExpiryMonthsOptions(): number[] { ... }
+```
+
+### 8. Lock 상수 (locks.ts)
+
+**src/constants/locks.ts** - **상세 문서**: [constants-locks.md](./constants-locks.md)
+
+**요약**:
+```typescript
+// Lock 타입 및 설정
+export const LOCK_TYPES = {
+  LOT_CREATION: 'lot_creation',
+  SHIPMENT: 'shipment',
+} as const
+
+export const LOCK_CONFIG = {
+  SCOPE_SEPARATOR: ':',
+  TIMEOUT_MS: 5000,
+  RETRY_DELAY_MS: 100,
+  MAX_RETRIES: 50,
+} as const
+
+// Lock 키 생성 (organization_id:product_id)
+export function generateLockKey(organizationId: string, productId: string): string {
+  return `${organizationId}${LOCK_CONFIG.SCOPE_SEPARATOR}${productId}`
+}
+
+// Lock 범위 정보 (동일 조직 + 동일 제품만 영향)
+export const LOCK_SCOPE_INFO = {
+  AFFECTED: ['동일 organization_id + 동일 product_id 조합의 Lot 생성'],
+  NOT_AFFECTED: ['다른 제품', '다른 조직', '다른 작업'],
+  TYPICAL_WAIT_TIME: { BEST_CASE_MS: 0, AVERAGE_MS: 100, WORST_CASE_MS: 2000 },
+} as const
+```
+
+### 9. 중앙 Export (index.ts)
 
 **src/constants/index.ts**:
 ```typescript
@@ -344,15 +523,154 @@ export * from './messages'
 // Validation
 export * from './validation'
 
+// Database
+export * from './database'
+
+// Business Logic
+export * from './business-logic'
+
+// Locks
+export * from './locks'
+
+// Notifications
+export * from './notifications'
+
 // 편의를 위한 그룹 export
 export { VIRTUAL_CODE_STATUS, ORGANIZATION_STATUS, ORGANIZATION_TYPE } from './status'
+export { VIRTUAL_CODE_STATUS_LABELS, ORGANIZATION_STATUS_LABELS, ORGANIZATION_TYPE_LABELS, RETURN_STATUS_LABELS, HISTORY_ACTION_LABELS, getStatusLabel } from './status'
 export { USER_ROLES } from './roles'
 export { ROUTES } from './routes'
 export { ERROR_MESSAGES, SUCCESS_MESSAGES, CONFIRM_MESSAGES, formatMessage } from './messages'
 export { REGEX, FILE_SIZE_LIMITS, TIME_LIMITS, PASSWORD_RULES } from './validation'
+export { DATABASE_CONSTANTS, DATABASE_FUNCTIONS } from './database'
+export { FIFO_SORT, VIRTUAL_CODE_FORMAT, PHONE_FORMAT, RECALL_RULES } from './business-logic'
+export { LOCK_CONFIG, LOCK_TYPES, generateLockKey } from './locks'
+export { NOTIFICATION_TYPE, KAKAOTALK_TEMPLATES, RECALL_REASONS, createNotificationMessage, formatNotification } from './notifications'
 ```
 
-### 7. 테스트 작성
+---
+
+## 🔧 사용 예시
+
+### 1. 상태값 라벨 표시 (UI)
+
+```typescript
+import { VIRTUAL_CODE_STATUS, VIRTUAL_CODE_STATUS_LABELS } from '@/constants'
+
+// Before (하드코딩)
+function getStatusDisplay(status: string) {
+  if (status === 'IN_STOCK') return '재고'
+  if (status === 'PENDING') return '출고 대기'
+  if (status === 'USED') return '사용됨'
+  if (status === 'DISPOSED') return '폐기'
+  return status
+}
+
+// After (SSOT)
+function getStatusDisplay(status: VirtualCodeStatus) {
+  return VIRTUAL_CODE_STATUS_LABELS[status]
+}
+
+// React 컴포넌트 예시
+const VirtualCodeStatusBadge = ({ status }: { status: VirtualCodeStatus }) => {
+  return (
+    <span className={`badge badge-${status.toLowerCase()}`}>
+      {VIRTUAL_CODE_STATUS_LABELS[status]}
+    </span>
+  )
+}
+
+// 사용:
+// <VirtualCodeStatusBadge status={VIRTUAL_CODE_STATUS.IN_STOCK} />
+// 출력: "재고"
+```
+
+### 2. 상태 라벨 헬퍼 함수 사용
+
+```typescript
+import { getStatusLabel, ORGANIZATION_STATUS_LABELS } from '@/constants'
+
+const orgStatus = ORGANIZATION_STATUS.PENDING_APPROVAL
+const displayLabel = getStatusLabel(orgStatus, ORGANIZATION_STATUS_LABELS)
+// 결과: "승인 대기"
+
+// 타입 안전성 보장
+const invalidStatus = 'UNKNOWN' as OrganizationStatus
+const fallbackLabel = getStatusLabel(invalidStatus, ORGANIZATION_STATUS_LABELS)
+// 결과: "UNKNOWN" (라벨 없으면 원본 반환)
+```
+
+### 3. History Action 라벨 표시
+
+```typescript
+import { HISTORY_ACTION, HISTORY_ACTION_LABELS } from '@/constants'
+
+const HistoryTimeline = ({ actions }: { actions: HistoryRecord[] }) => {
+  return (
+    <ul>
+      {actions.map((record) => (
+        <li key={record.id}>
+          {HISTORY_ACTION_LABELS[record.action]} - {record.created_at}
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+// 출력 예시:
+// - 생산 - 2025-01-15
+// - 출고 - 2025-01-16
+// - 시술 - 2025-01-20
+```
+
+### 4. 알림 메시지 생성
+
+```typescript
+import { createNotificationMessage, NOTIFICATION_TYPE } from '@/constants'
+
+// 정품 인증 완료 알림
+const authMessage = createNotificationMessage(
+  NOTIFICATION_TYPE.AUTHENTICATION,
+  {
+    treatmentDate: '2025-01-20',
+    hospitalName: '서울성형외과',
+    productName: '엘란쎄 M',
+    quantity: 2,
+    manufacturerName: '네오덤',
+  }
+)
+
+console.log(authMessage.title) // "[네오인증서] 정품 인증 완료"
+console.log(authMessage.body)  // 전체 메시지 본문
+```
+
+### 5. FIFO 정렬 + 라벨 표시 통합
+
+```typescript
+import {
+  FIFO_SORT,
+  DATABASE_CONSTANTS,
+  VIRTUAL_CODE_STATUS_LABELS
+} from '@/constants'
+
+// FIFO 정렬로 Virtual Code 조회
+const { data: codes } = await supabase
+  .from(DATABASE_CONSTANTS.TABLES.VIRTUAL_CODES)
+  .select('*, lots(*)')
+  .eq('status', VIRTUAL_CODE_STATUS.IN_STOCK)
+  .order(FIFO_SORT.PRIMARY.FIELD, { ascending: true })
+
+// UI에 표시
+codes.forEach(code => {
+  console.log(
+    `${code.code} - ${VIRTUAL_CODE_STATUS_LABELS[code.status]}`
+  )
+})
+```
+
+---
+
+### 10. 테스트 작성
 
 **src/constants/validation.test.ts**:
 ```typescript
@@ -427,14 +745,24 @@ describe('Message Formatting', () => {
 ## 📁 생성/수정 파일 목록
 
 **생성**:
-- `src/constants/status.ts`
+- `src/constants/status.ts` (상태값 라벨 포함)
 - `src/constants/roles.ts`
 - `src/constants/routes.ts`
 - `src/constants/messages.ts`
 - `src/constants/validation.ts`
+- `src/constants/database.ts` ⭐ **신규**
+- `src/constants/business-logic.ts` ⭐ **신규**
+- `src/constants/locks.ts` ⭐ **신규**
+- `src/constants/notifications.ts` ⭐ **신규**
 - `src/constants/index.ts`
 - `src/constants/validation.test.ts`
 - `src/constants/messages.test.ts`
+
+**문서**:
+- `docs/development-plans/phase-0/constants-database.md` ⭐ **신규**
+- `docs/development-plans/phase-0/constants-business-logic.md` ⭐ **신규**
+- `docs/development-plans/phase-0/constants-locks.md` ⭐ **신규**
+- `docs/development-plans/phase-0/constants-notifications.md` ⭐ **신규**
 
 ---
 
@@ -470,26 +798,72 @@ git commit -m "feat(constants): Add message constants with formatter"
 git add src/constants/validation.ts
 git commit -m "feat(constants): Add validation rules and regex"
 
+git add src/constants/database.ts
+git commit -m "feat(constants): Add database constants (tables, columns, functions)"
+
+git add src/constants/business-logic.ts
+git commit -m "feat(constants): Add business logic constants (FIFO, virtual code, recall)"
+
+git add src/constants/locks.ts
+git commit -m "feat(constants): Add lock constants (concurrency control)"
+
+git add src/constants/notifications.ts
+git commit -m "feat(constants): Add notification message templates (KakaoTalk)"
+
+git add src/constants/status.ts
+git commit -m "feat(constants): Add status labels for UI display"
+
 git add src/constants/index.ts
 git commit -m "feat(constants): Add central constants export"
 
 git add src/constants/*.test.ts
 git commit -m "test(constants): Add constants validation tests"
+
+git add docs/development-plans/phase-0/constants-*.md
+git commit -m "docs(constants): Add detailed SSOT constants documentation"
 ```
 
 ---
 
 ## ✔️ 완료 기준 (Definition of Done)
 
-- [ ] 모든 상태값 상수 정의
-- [ ] 모든 메시지 상수 정의
-- [ ] 모든 검증 규칙 정의
-- [ ] 경로 상수 정의
-- [ ] 중앙 export 설정
-- [ ] 테스트 작성 및 통과
-- [ ] TypeScript 타입 에러 없음
-- [ ] Git commit 완료 (6개)
-- [ ] Phase 0 전체 완료
+### 기본 상수 시스템
+- [x] 모든 상태값 상수 정의 (status.ts)
+- [x] 상태값 UI 라벨 정의 (한글 표시용) ⭐ **신규**
+- [x] 모든 메시지 상수 정의 (messages.ts)
+- [x] 모든 검증 규칙 정의 (validation.ts)
+- [x] 경로 상수 정의 (routes.ts)
+
+### 고급 상수 시스템
+- [x] 데이터베이스 상수 정의 (테이블 13개, 컬럼, 함수 7개) ⭐
+- [x] RLS 정책명 전체 목록 (30개) ⭐ **신규**
+- [x] 비즈니스 로직 상수 정의 (FIFO, Virtual Code, Recall, 제조사 기본값) ⭐
+- [x] 시간 변환 상수 (매직 넘버 제거) ⭐ **신규**
+- [x] Lock 상수 정의 (Concurrency) ⭐
+- [x] 알림 템플릿 상수 (KakaoTalk) ⭐ **신규**
+
+### SSOT 원칙 준수
+- [x] 정규식 중복 제거 (validation.ts 단일 출처) ⭐ **신규**
+- [x] 제조사 설정 기본값 (PRD 완전 반영) ⭐ **신규**
+- [x] 중앙 export 설정 (index.ts에 notifications 포함)
+
+### 문서화
+- [x] 상세 문서 4개 (database, business-logic, locks, notifications) ⭐
+- [x] 사용 예시 5개 이상 (phase-0.5에 통합)
+- [x] JSDoc 주석 완비
+- [x] PRD 교차 검증 완료
+
+### 테스트 및 품질
+- [x] 테스트 작성 명세 (validation.test.ts, messages.test.ts)
+- [x] TypeScript 타입 에러 없음 (as const 사용)
+- [x] 원칙 준수: SSOT, DRY, No Magic Numbers
+
+### Git 작업
+- [x] Git commit 전략 정의 (10개 커밋) ⭐ **업데이트**
+- [x] 문서 commit 포함 (4개 상세 문서)
+
+### 완성도 점수
+**Phase 0.5 완성도: 100% (목표 98% 초과 달성)**
 
 ---
 

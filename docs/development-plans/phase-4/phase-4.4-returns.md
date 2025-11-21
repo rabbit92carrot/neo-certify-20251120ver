@@ -31,6 +31,22 @@ graph LR
     C -->|거부| I[거부 사유 입력]
 ```
 
+---
+
+## 🎯 Development Principles Checklist
+
+- [ ] **SSOT (Single Source of Truth)**: 모든 리터럴은 constants에서 관리
+- [ ] **No Magic Numbers**: 하드코딩된 숫자 없이 상수 사용
+- [ ] **No 'any' Type**: 모든 타입을 명시적으로 정의
+- [ ] **Clean Code**: 함수는 단일 책임, 명확한 변수명
+- [ ] **Test-Driven Development**: 테스트 시나리오 우선 작성
+- [ ] **Git Conventional Commits**: feat/fix/docs/test 등 규칙 준수
+- [ ] **Frontend-First Development**: API 호출 전 타입 및 인터페이스 정의
+- [ ] 원칙 8: 작업 범위 100% 완료 (시간 무관)
+- [ ] 원칙 9: Context 메모리 부족 시 사용자 알림
+
+---
+
 ### 2. return_requests 테이블 (Phase 1.3)
 
 **상태 전이**:

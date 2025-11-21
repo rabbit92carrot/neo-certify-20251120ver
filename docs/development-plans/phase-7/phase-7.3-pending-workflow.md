@@ -13,6 +13,20 @@
 
 ---
 
+## 🎯 Development Principles Checklist
+
+- [ ] **SSOT (Single Source of Truth)**: 모든 리터럴은 constants에서 관리
+- [ ] **No Magic Numbers**: 하드코딩된 숫자 없이 상수 사용
+- [ ] **No 'any' Type**: 모든 타입을 명시적으로 정의
+- [ ] **Clean Code**: 함수는 단일 책임, 명확한 변수명
+- [ ] **Test-Driven Development**: 테스트 시나리오 우선 작성
+- [ ] **Git Conventional Commits**: feat/fix/docs/test 등 규칙 준수
+- [ ] **Frontend-First Development**: API 호출 전 타입 및 인터페이스 정의
+- [ ] 원칙 8: 작업 범위 100% 완료 (시간 무관)
+- [ ] 원칙 9: Context 메모리 부족 시 사용자 알림
+
+---
+
 ## 🎯 핵심 요구사항
 
 ### 1. Pending 상태 플로우
@@ -736,6 +750,56 @@ export function ApprovedShipmentsTable({ shipments, onRecall }: ApprovedShipment
 
 ---
 
+### ⭐ 시나리오 5: 즉시 소유권 이전 모델 검증
+
+**목적**: 보강 작업에서 적용된 즉시 소유권 이전 모델이 올바르게 동작하는지 검증
+
+**Given**:
+- 제조사(Org A)가 유통사(Org B)로 제품 10개 출고
+
+**When**:
+- 출고 트랜잭션 실행 (`shipment_transaction` 함수 호출)
+
+**Then**:
+1. **출고 직후 상태**:
+   - `virtual_codes.owner_id = Org B` (즉시 소유권 이전 ✅)
+   - `virtual_codes.previous_owner_id = Org A` (이전 소유자 기록 ✅)
+   - `virtual_codes.pending_to = Org B` (수신 대기 ✅)
+   - `virtual_codes.status = 'PENDING'`
+
+2. **유통사 수락 시**:
+   - `virtual_codes.owner_id = Org B` (변경 없음 ✅)
+   - `virtual_codes.pending_to = NULL` (초기화 ✅)
+   - `virtual_codes.previous_owner_id = Org A` (유지 ✅)
+   - `virtual_codes.status = 'IN_STOCK'`
+
+3. **유통사 반품 시**:
+   - `virtual_codes.owner_id = Org A` (이전 소유자로 복원 ✅)
+   - `virtual_codes.previous_owner_id = NULL` (초기화 ✅)
+   - `virtual_codes.pending_to = NULL` (초기화 ✅)
+   - `virtual_codes.status = 'IN_STOCK'`
+   - 제조사 재고에 10개 복원 확인
+
+**검증 방법**:
+```sql
+-- 출고 직후 확인
+SELECT owner_id, previous_owner_id, pending_to, status
+FROM virtual_codes
+WHERE id IN (출고된 코드 ID들);
+
+-- 수락 후 확인
+SELECT owner_id, previous_owner_id, pending_to, status
+FROM virtual_codes
+WHERE id IN (출고된 코드 ID들);
+
+-- 반품 후 확인
+SELECT owner_id, previous_owner_id, pending_to, status
+FROM virtual_codes
+WHERE id IN (출고된 코드 ID들);
+```
+
+---
+
 ## ✅ Definition of Done
 
 ### 데이터베이스
@@ -759,8 +823,9 @@ export function ApprovedShipmentsTable({ shipments, onRecall }: ApprovedShipment
 - [ ] 24시간 카운트다운 표시
 
 ### 테스트
-- [ ] 4개 시나리오 모두 E2E 테스트 통과
+- [ ] 5개 시나리오 모두 E2E 테스트 통과 (⭐ 시나리오 5 추가)
 - [ ] 거부 시 재고 복원 확인
+- [ ] ⭐ 즉시 소유권 이전 모델 검증 (owner_id, previous_owner_id, pending_to)
 - [ ] 회수 시 재고 복원 확인
 - [ ] 24시간 초과 시 회수 불가 확인
 

@@ -30,6 +30,8 @@
 - [ ] **Test-Driven Development**: 테스트 시나리오 우선 작성
 - [ ] **Git Conventional Commits**: feat/fix/docs/test 등 규칙 준수
 - [ ] **Frontend-First Development**: API 호출 전 타입 및 인터페이스 정의
+- [ ] 원칙 8: 작업 범위 100% 완료 (시간 무관)
+- [ ] 원칙 9: Context 메모리 부족 시 사용자 알림
 
 ---
 

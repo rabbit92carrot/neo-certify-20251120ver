@@ -16,6 +16,8 @@
 - [x] Clean Code: 명확한 테이블/컬럼명
 - [ ] 테스트 작성: Migration 검증
 - [ ] Git commit: ERD 및 Docker 설정 커밋
+- [ ] 원칙 8: 작업 범위 100% 완료 (시간 무관)
+- [ ] 원칙 9: Context 메모리 부족 시 사용자 알림
 
 ---
 
