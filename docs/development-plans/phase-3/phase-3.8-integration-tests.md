@@ -1,0 +1,380 @@
+# Phase 3.8: 통합 테스트
+
+## 📋 Overview
+
+**Phase 3.8**은 Phase 3(제조사 기능)의 통합 테스트를 정의합니다. 전체 워크플로우를 End-to-End로 테스트하여 모든 기능이 정상 동작하는지 검증합니다.
+
+---
+
+## 📦 Integration Test Scenarios
+
+### 1. 제조사 설정 → Lot 생산 → 출고 전체 플로우
+
+**파일 경로**: `src/pages/manufacturer/__tests__/integration/manufacturer-workflow.test.tsx`
+
+```typescript
+import { describe, it, expect, beforeAll, afterAll } from 'vitest'
+import { render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { supabase } from '@/lib/supabase'
+
+describe('Manufacturer Workflow Integration Test', () => {
+  beforeAll(async () => {
+    // Setup test data
+    // Create test organization, user, product
+  })
+
+  afterAll(async () => {
+    // Cleanup test data
+  })
+
+  it('전체 제조사 워크플로우가 정상 동작해야 한다', async () => {
+    // 1. 제조사 설정 등록
+    // Navigate to settings page
+    // Fill lot prefix, model digits, sequence digits, expiry months
+    // Save settings
+    // Verify settings saved
+
+    // 2. 제품 등록
+    // Navigate to product create page
+    // Fill product name, UDI-DI, model name
+    // Save product
+    // Verify product created
+
+    // 3. Lot 생산 등록
+    // Navigate to lot production page
+    // Select product
+    // Enter quantity and production date
+    // Submit lot production
+    // Verify lot created with auto-generated lot number
+    // Verify inventory created
+
+    // 4. 재고 조회
+    // Navigate to inventory page
+    // Verify lot appears in inventory
+    // Verify quantity matches
+
+    // 5. 출고 처리
+    // Navigate to shipment page
+    // Add product to cart
+    // Verify FIFO allocation
+    // Complete shipment
+    // Verify inventory decreased
+
+    // 6. 거래 이력 조회
+    // Navigate to transaction history page
+    // Verify production record exists
+    // Verify shipment record exists
+  })
+
+  it('재고 부족 시 출고가 실패해야 한다', async () => {
+    // Create lot with 100 quantity
+    // Try to ship 150 quantity
+    // Verify error message displayed
+    // Verify inventory unchanged
+  })
+
+  it('사용기한 임박 경고가 표시되어야 한다', async () => {
+    // Create lot with expiry date in 20 days
+    // Navigate to inventory page
+    // Verify expiry warning badge displayed
+  })
+
+  it('Lot 번호가 자동 증가해야 한다', async () => {
+    // Create first lot
+    // Verify lot number: ABC12300001
+    // Create second lot for same product
+    // Verify lot number: ABC12300002
+  })
+
+  it('제품 비활성화 시 Lot 생산이 불가해야 한다', async () => {
+    // Create active product
+    // Deactivate product
+    // Navigate to lot production page
+    // Verify product not in dropdown
+  })
+})
+```
+
+---
+
+### 2. FIFO 알고리즘 통합 테스트
+
+**파일 경로**: `src/pages/manufacturer/__tests__/integration/fifo-allocation.test.tsx`
+
+```typescript
+import { describe, it, expect } from 'vitest'
+
+describe('FIFO Allocation Integration Test', () => {
+  it('FIFO 알고리즘이 올바르게 동작해야 한다', async () => {
+    // Create 3 lots with different production dates:
+    // Lot A: 2025-01-01, quantity 50
+    // Lot B: 2025-01-10, quantity 30
+    // Lot C: 2025-01-20, quantity 20
+
+    // Request shipment of 60 quantity
+    // Verify allocation:
+    // - Lot A: 50 (oldest, fully allocated)
+    // - Lot B: 10 (second oldest, partially allocated)
+
+    // Verify inventory after shipment:
+    // - Lot A: 0
+    // - Lot B: 20
+    // - Lot C: 20 (not touched)
+  })
+
+  it('정확한 수량만 할당되어야 한다', async () => {
+    // Create lot with 100 quantity
+    // Request shipment of 100 quantity
+    // Verify lot fully allocated
+    // Verify no remaining inventory
+  })
+
+  it('여러 제품의 FIFO가 독립적으로 동작해야 한다', async () => {
+    // Create Product A Lot 1: 2025-01-01, qty 50
+    // Create Product A Lot 2: 2025-01-10, qty 50
+    // Create Product B Lot 1: 2025-01-05, qty 40
+
+    // Ship Product A: 60
+    // Verify Product A Lot 1 fully used, Lot 2 partially used
+    // Verify Product B not affected
+  })
+})
+```
+
+---
+
+### 3. Database Constraint 테스트
+
+**파일 경로**: `src/pages/manufacturer/__tests__/integration/database-constraints.test.tsx`
+
+```typescript
+import { describe, it, expect } from 'vitest'
+
+describe('Database Constraint Integration Test', () => {
+  it('UDI-DI 중복 시 제품 등록이 실패해야 한다', async () => {
+    // Create product with UDI-DI: 01234567890123
+    // Try to create another product with same UDI-DI
+    // Verify error thrown
+  })
+
+  it('Lot 번호 중복 시 생산 등록이 실패해야 한다', async () => {
+    // Manually create lot with lot_number: ABC12300001
+    // Try to create another lot with same lot_number
+    // Verify error thrown
+  })
+
+  it('재고를 초과하는 출고가 실패해야 한다', async () => {
+    // Create lot with 50 quantity
+    // Try to decrement inventory by 60
+    // Verify error thrown
+    // Verify inventory unchanged
+  })
+
+  it('조직당 하나의 제조사 설정만 존재해야 한다', async () => {
+    // Create manufacturer settings
+    // Try to create another settings for same organization
+    // Verify upsert behavior (update instead of duplicate)
+  })
+})
+```
+
+---
+
+### 4. Performance 테스트
+
+**파일 경로**: `src/pages/manufacturer/__tests__/integration/performance.test.tsx`
+
+```typescript
+import { describe, it, expect } from 'vitest'
+
+describe('Performance Integration Test', () => {
+  it('대량 Lot 조회가 5초 이내에 완료되어야 한다', async () => {
+    // Create 1000 lots
+    const startTime = Date.now()
+
+    // Query all lots
+    const { data } = await supabase
+      .from('lots')
+      .select('*, product:products(*)')
+      .limit(1000)
+
+    const endTime = Date.now()
+    const duration = endTime - startTime
+
+    expect(duration).toBeLessThan(5000) // 5 seconds
+  })
+
+  it('재고 집계가 3초 이내에 완료되어야 한다', async () => {
+    // Create 500 inventory records
+    const startTime = Date.now()
+
+    // Aggregate inventory
+    const { data } = await supabase
+      .from('inventory')
+      .select('current_quantity')
+
+    const total = data?.reduce((sum, inv) => sum + inv.current_quantity, 0)
+
+    const endTime = Date.now()
+    const duration = endTime - startTime
+
+    expect(duration).toBeLessThan(3000) // 3 seconds
+  })
+})
+```
+
+---
+
+## ✅ Test Coverage Requirements
+
+### Phase 3 전체 테스트 커버리지 목표
+
+- **Unit Tests**: 80% 이상
+- **Integration Tests**: 주요 워크플로우 100% 커버
+- **E2E Tests**: Critical path 100% 커버
+
+### 테스트해야 할 주요 영역
+
+1. **제품 관리** (Phase 3.1-3.2)
+   - ✅ 제품 목록 조회
+   - ✅ 제품 CRUD
+   - ✅ UDI-DI 중복 검증
+   - ✅ 제품 활성화/비활성화
+
+2. **제조사 설정** (Phase 3.3)
+   - ✅ 설정 등록/수정
+   - ✅ Lot 번호 미리보기
+   - ✅ Upsert 동작
+
+3. **Lot 생산** (Phase 3.4)
+   - ✅ Lot 번호 자동 생성
+   - ✅ Virtual Code 생성
+   - ✅ 사용기한 자동 계산
+   - ✅ Inventory 생성
+
+4. **출고** (Phase 3.5)
+   - ✅ FIFO 할당 알고리즘
+   - ✅ 장바구니 기능
+   - ✅ 재고 차감
+   - ✅ Shipment 레코드 생성
+
+5. **재고 조회** (Phase 3.6)
+   - ✅ 재고 목록 표시
+   - ✅ 사용기한 경고
+   - ✅ 재고 통계
+
+6. **거래 이력** (Phase 3.7)
+   - ✅ 생산/출고 이력 조회
+   - ✅ 날짜별 정렬
+   - ✅ 유형별 필터
+
+---
+
+## 🔍 Manual Test Checklist
+
+### 제조사 기능 전체 시나리오
+
+- [ ] **1. 초기 설정**
+  - [ ] 제조사 설정 등록 (Lot 접두사, 자릿수, 사용기한)
+  - [ ] 설정 저장 확인
+  - [ ] Lot 번호 미리보기 확인
+
+- [ ] **2. 제품 등록**
+  - [ ] 제품 등록 (제품명, UDI-DI, 모델명)
+  - [ ] UDI-DI 중복 검사 동작 확인
+  - [ ] 제품 목록에 표시 확인
+
+- [ ] **3. Lot 생산**
+  - [ ] Lot 생산 등록 (제품 선택, 수량, 생산일)
+  - [ ] Lot 번호 자동 생성 확인
+  - [ ] Virtual Code 생성 확인
+  - [ ] 사용기한 자동 계산 확인
+  - [ ] 재고 자동 생성 확인
+
+- [ ] **4. 재고 확인**
+  - [ ] 재고 목록에 Lot 표시 확인
+  - [ ] 재고 수량 일치 확인
+  - [ ] 사용기한 임박 경고 표시 확인
+
+- [ ] **5. 출고 처리**
+  - [ ] 제품 선택 및 수량 입력
+  - [ ] FIFO 자동 할당 확인
+  - [ ] 출고 완료 처리
+  - [ ] 재고 차감 확인
+
+- [ ] **6. 이력 조회**
+  - [ ] 생산 이력 표시 확인
+  - [ ] 출고 이력 표시 확인
+  - [ ] 날짜별 정렬 확인
+
+---
+
+## 🔄 Git Commit Message
+
+```bash
+test(manufacturer): add Phase 3 integration tests
+
+- Add manufacturer workflow integration test
+- Add FIFO allocation algorithm test
+- Add database constraint validation test
+- Add performance benchmark test
+- Define test coverage requirements
+- Create manual test checklist
+
+Test scenarios:
+- Full manufacturer workflow (settings → production → shipment)
+- FIFO allocation with multiple lots
+- UDI-DI and lot number uniqueness
+- Inventory quantity constraints
+- Performance benchmarks for large datasets
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+```
+
+---
+
+## ✔️ Definition of Done
+
+- [ ] 전체 워크플로우 통합 테스트 작성 완료
+- [ ] FIFO 알고리즘 통합 테스트 작성 완료
+- [ ] Database constraint 테스트 작성 완료
+- [ ] Performance 테스트 작성 완료
+- [ ] 모든 통합 테스트 통과
+- [ ] Unit 테스트 커버리지 80% 이상 달성
+- [ ] Manual test checklist 100% 완료
+- [ ] Phase 3 전체 기능 검증 완료
+- [ ] Git commit (Conventional Commits) 완료
+
+---
+
+## 🔗 References
+
+- [Vitest Integration Testing](https://vitest.dev/guide/features.html)
+- [React Testing Library](https://testing-library.com/docs/react-testing-library/intro/)
+- [Supabase Testing Guide](https://supabase.com/docs/guides/getting-started/testing)
+
+---
+
+## ⏭️ Next Steps
+
+**다음 단계**: [Phase 4 - 유통사 기능](../phase-4/README.md)
+
+**Phase 4 개요**:
+- 입고 관리
+- 재고 조회
+- 병원 출고
+- 반품 처리
+- 이력 조회
+- 통합 테스트
+
+**Phase 3 완료!** 🎉
+
+모든 제조사 핵심 기능이 구현되었습니다:
+- ✅ 제품 관리 (CRUD)
+- ✅ 제조사 설정
+- ✅ Lot 생산 등록
+- ✅ 출고 (FIFO)
+- ✅ 재고 조회
+- ✅ 거래 이력
+- ✅ 통합 테스트
