@@ -50,6 +50,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { VALIDATION } from '@/constants/validation'
 import type { Inventory, Lot, Product } from '@/types/database'
 
 interface InventoryWithDetails extends Inventory {
@@ -110,7 +111,7 @@ export function DistributorInventoryPage() {
         return (
           <div className="flex items-center gap-2">
             <span className="text-sm">{info.getValue()}</span>
-            {daysUntilExpiry <= 30 && daysUntilExpiry >= 0 && (
+            {daysUntilExpiry <= VALIDATION.EXPIRY_WARNING_DAYS && daysUntilExpiry >= 0 && (
               <Badge variant="destructive" className="text-xs">
                 {daysUntilExpiry}일 남음
               </Badge>

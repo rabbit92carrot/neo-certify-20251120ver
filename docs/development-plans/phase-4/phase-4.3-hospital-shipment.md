@@ -211,7 +211,25 @@ export function HospitalShipmentPage() {
        */
 
       for (const item of cart) {
-        // 1. FIFO로 Virtual Code 선택 (sequence_number 순서)
+        /**
+         * 1. FIFO로 Virtual Code 선택
+         *
+         * ⚠️ 중요: Supabase 클라이언트는 JOIN 쿼리에서 복잡한 정렬을 지원하지 않음
+         * 따라서 RPC 함수 또는 두 단계 조회 필요
+         *
+         * 옵션 A: RPC 함수 사용 (권장)
+         * ```typescript
+         * const { data: virtualCodes } = await supabase.rpc('get_fifo_virtual_codes', {
+         *   p_product_id: item.product.id,
+         *   p_owner_id: userData!.organization_id,
+         *   p_quantity: item.quantity
+         * })
+         * ```
+         *
+         * 옵션 B: 두 단계 조회 (현재 구현)
+         * - 1단계: allocateFIFO()로 Lot 목록 결정 (이미 FIFO 정렬됨)
+         * - 2단계: 각 Lot에서 sequence_number 순으로 Virtual Code 선택
+         */
         const { data: virtualCodes, error: vcError } = await supabase
           .from('virtual_codes')
           .select('id, lot_id, sequence_number')
@@ -373,6 +391,78 @@ export function HospitalShipmentPage() {
   )
 }
 ```
+
+---
+
+## 📝 PostgreSQL RPC Function for FIFO (Optional Enhancement)
+
+### get_fifo_virtual_codes 함수
+
+**설명**: Virtual Code 선택 시 완전한 FIFO 정렬을 보장하는 RPC 함수
+
+**파일 위치**: `supabase/migrations/xxx_get_fifo_virtual_codes.sql`
+
+```sql
+CREATE OR REPLACE FUNCTION get_fifo_virtual_codes(
+  p_product_id UUID,
+  p_owner_id UUID,
+  p_quantity INTEGER
+)
+RETURNS TABLE (
+  id UUID,
+  code TEXT,
+  lot_id UUID,
+  sequence_number INTEGER
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  RETURN QUERY
+  SELECT
+    vc.id,
+    vc.code,
+    vc.lot_id,
+    vc.sequence_number
+  FROM virtual_codes vc
+  JOIN lots l ON vc.lot_id = l.id
+  WHERE
+    l.product_id = p_product_id
+    AND vc.owner_id = p_owner_id
+    AND vc.owner_type = 'organization'
+    AND vc.status = 'IN_STOCK'
+  ORDER BY
+    l.manufacture_date ASC,      -- 1차: 제조일 빠른 순
+    l.expiry_date ASC,            -- 2차: 사용기한 가까운 순
+    vc.sequence_number ASC,       -- 3차: Lot 내부 순서
+    l.created_at ASC              -- 4차: Lot 생성일
+  LIMIT p_quantity;
+END;
+$$;
+
+-- 사용 예시 (TypeScript)
+/*
+const { data: virtualCodes, error } = await supabase.rpc('get_fifo_virtual_codes', {
+  p_product_id: 'uuid-here',
+  p_owner_id: userData.organization_id,
+  p_quantity: 10
+})
+
+if (error) throw error
+
+// virtualCodes는 이미 완전한 FIFO 순서로 정렬되어 있음
+console.log(virtualCodes) // [{ id, code, lot_id, sequence_number }, ...]
+*/
+```
+
+**장점**:
+- ✅ 데이터베이스 레벨에서 완전한 FIFO 정렬 보장
+- ✅ 클라이언트 측 로직 단순화 (두 단계 조회 불필요)
+- ✅ 성능 향상 (단일 쿼리로 처리)
+- ✅ 복잡한 JOIN + ORDER BY 조합 지원
+
+**단점**:
+- ⚠️ Supabase 마이그레이션 관리 필요
+- ⚠️ RPC 함수 버전 관리 복잡도 증가
 
 ---
 

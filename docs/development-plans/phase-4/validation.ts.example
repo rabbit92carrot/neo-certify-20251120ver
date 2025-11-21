@@ -61,9 +61,57 @@ export const VALIDATION = {
   // Pagination
   DEFAULT_PAGE_SIZE: 20,
   MAX_PAGE_SIZE: 100,
+
+  // UI Display
+  TABLE_ROW_HEIGHT: 64,
+  MAX_TRUNCATE_LENGTH: 100,
+  TOAST_DURATION: 3000,
+
+  // Date/Time
+  DATE_FORMAT: 'yyyy-MM-dd',
+  DATETIME_FORMAT: 'yyyy-MM-dd HH:mm',
+  TIME_FORMAT: 'HH:mm:ss',
 } as const
 
 export type ValidationKey = keyof typeof VALIDATION
+
+/**
+ * Table and Column Names (SSOT for database queries)
+ *
+ * 목적: 오타 방지 및 리팩토링 용이성
+ */
+export const TABLE_NAMES = {
+  PRODUCTS: 'products',
+  LOTS: 'lots',
+  VIRTUAL_CODES: 'virtual_codes',
+  ORGANIZATIONS: 'organizations',
+  USERS: 'users',
+  INVENTORY: 'inventory',
+  SHIPMENTS: 'shipments',
+  SHIPMENT_DETAILS: 'shipment_details',
+  RETURN_REQUESTS: 'return_requests',
+  RETURN_DETAILS: 'return_details',
+  HISTORY: 'history',
+  PATIENTS: 'patients',
+} as const
+
+export const COLUMN_NAMES = {
+  ID: 'id',
+  NAME: 'name',
+  STATUS: 'status',
+  CREATED_AT: 'created_at',
+  UPDATED_AT: 'updated_at',
+  OWNER_ID: 'owner_id',
+  OWNER_TYPE: 'owner_type',
+  ORGANIZATION_ID: 'organization_id',
+  PRODUCT_ID: 'product_id',
+  LOT_ID: 'lot_id',
+  VIRTUAL_CODE_ID: 'virtual_code_id',
+  SEQUENCE_NUMBER: 'sequence_number',
+  MANUFACTURE_DATE: 'manufacture_date',
+  EXPIRY_DATE: 'expiry_date',
+  LOT_NUMBER: 'lot_number',
+} as const
 
 /**
  * Validation Helper Functions
@@ -130,7 +178,7 @@ export const VALIDATION_ERROR_MESSAGES = {
 /**
  * Usage Examples:
  *
- * 1. React Component:
+ * 1. React Component (Validation):
  * ```tsx
  * import { VALIDATION, validateVirtualCode } from '@/constants/validation'
  *
@@ -160,7 +208,53 @@ export const VALIDATION_ERROR_MESSAGES = {
  * })
  * ```
  *
- * 3. Database Query:
+ * 3. Database Query (Table Names):
+ * ```ts
+ * import { TABLE_NAMES, COLUMN_NAMES } from '@/constants/validation'
+ *
+ * // ❌ 오타 위험
+ * const { data } = await supabase.from('virtual_codes').select('*')
+ *
+ * // ✅ 타입 안전 + 자동완성
+ * const { data } = await supabase.from(TABLE_NAMES.VIRTUAL_CODES).select('*')
+ *
+ * // ✅ JOIN 쿼리에서도 사용 가능
+ * const { data } = await supabase
+ *   .from(TABLE_NAMES.VIRTUAL_CODES)
+ *   .select(`
+ *     ${COLUMN_NAMES.ID},
+ *     ${COLUMN_NAMES.CODE},
+ *     lot:${TABLE_NAMES.LOTS}(${COLUMN_NAMES.LOT_NUMBER})
+ *   `)
+ * ```
+ *
+ * 4. Date Formatting:
+ * ```ts
+ * import { VALIDATION } from '@/constants/validation'
+ * import { format } from 'date-fns'
+ *
+ * // ❌ 하드코딩
+ * const dateStr = format(new Date(), 'yyyy-MM-dd')
+ *
+ * // ✅ SSOT 사용
+ * const dateStr = format(new Date(), VALIDATION.DATE_FORMAT)
+ * ```
+ *
+ * 5. Expiry Warning Badge:
+ * ```tsx
+ * import { VALIDATION } from '@/constants/validation'
+ * import { differenceInDays } from 'date-fns'
+ *
+ * const daysUntilExpiry = differenceInDays(expiryDate, new Date())
+ *
+ * // ❌ 하드코딩
+ * {daysUntilExpiry <= 30 && <Badge>곧 만료</Badge>}
+ *
+ * // ✅ SSOT 사용
+ * {daysUntilExpiry <= VALIDATION.EXPIRY_WARNING_DAYS && <Badge>곧 만료</Badge>}
+ * ```
+ *
+ * 6. Quantity Validation:
  * ```ts
  * if (quantity < VALIDATION.QUANTITY_MIN || quantity > VALIDATION.QUANTITY_MAX) {
  *   throw new Error(VALIDATION_ERROR_MESSAGES.QUANTITY_INVALID)

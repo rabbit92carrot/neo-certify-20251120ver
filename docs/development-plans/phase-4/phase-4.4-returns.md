@@ -119,6 +119,8 @@ interface ReturnRequest {
   requester: {
     name: string
   }
+  details: ReturnDetail[] // ⭐ Virtual Code 목록 (1:N)
+  quantity: number // ⭐ 계산된 수량 (details.length)
 }
 
 interface ReturnDetail {
@@ -419,9 +421,16 @@ export function DistributorReturnsPage() {
                         <TableCell className="font-medium">
                           {request.requester.name}
                         </TableCell>
-                        <TableCell>{request.lot.product.name}</TableCell>
+                        <TableCell>
+                          {request.details[0]?.virtual_code.lot.product.name ?? '-'}
+                          {request.details.length > 1 && (
+                            <span className="text-xs text-gray-500 ml-1">
+                              외 {request.details.length - 1}건
+                            </span>
+                          )}
+                        </TableCell>
                         <TableCell className="font-mono text-sm">
-                          {request.lot.lot_number}
+                          {request.details[0]?.virtual_code.lot.lot_number ?? '-'}
                         </TableCell>
                         <TableCell>{request.quantity}개</TableCell>
                         <TableCell className="text-sm text-gray-600 max-w-xs truncate">
@@ -486,7 +495,14 @@ export function DistributorReturnsPage() {
                           {format(new Date(request.requested_at), 'yyyy-MM-dd HH:mm')}
                         </TableCell>
                         <TableCell>{request.requester.name}</TableCell>
-                        <TableCell>{request.lot.product.name}</TableCell>
+                        <TableCell>
+                          {request.details[0]?.virtual_code.lot.product.name ?? '-'}
+                          {request.details.length > 1 && (
+                            <span className="text-xs text-gray-500 ml-1">
+                              외 {request.details.length - 1}건
+                            </span>
+                          )}
+                        </TableCell>
                         <TableCell>{request.quantity}개</TableCell>
                         <TableCell>
                           <Badge
