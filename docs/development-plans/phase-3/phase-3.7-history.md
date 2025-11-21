@@ -125,7 +125,7 @@ export function TransactionHistoryPage() {
         .from('lots')
         .select('*, product:products!inner(*)')
         .eq('product.organization_id', userData!.organization_id)
-        .order('production_date', { ascending: false })
+        .order('manufacture_date', { ascending: false })
 
       if (error) throw error
       return data as (Lot & { product: Product })[]
@@ -154,7 +154,7 @@ export function TransactionHistoryPage() {
     ...(lots?.map((lot) => ({
       id: lot.id,
       type: 'production' as TransactionType,
-      date: lot.production_date,
+      date: lot.manufacture_date,
       lot,
       quantity: lot.quantity,
     })) ?? []),

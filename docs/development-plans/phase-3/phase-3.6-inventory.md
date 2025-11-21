@@ -113,7 +113,7 @@ export function InventoryPage() {
         .from('inventory')
         .select('*, lot:lots(*, product:products(*))')
         .eq('organization_id', userData!.organization_id)
-        .order('lot.production_date', { ascending: true })
+        .order('lot.manufacture_date', { ascending: true })
 
       if (error) throw error
       return data as InventoryWithDetails[]
@@ -130,8 +130,8 @@ export function InventoryPage() {
       header: 'Lot 번호',
       cell: (info) => <div className="font-mono text-sm">{info.getValue()}</div>,
     }),
-    columnHelper.accessor('lot.production_date', {
-      header: '생산일',
+    columnHelper.accessor('lot.manufacture_date', {
+      header: '제조일',
       cell: (info) => <div className="text-sm">{info.getValue()}</div>,
     }),
     columnHelper.accessor('lot.expiry_date', {

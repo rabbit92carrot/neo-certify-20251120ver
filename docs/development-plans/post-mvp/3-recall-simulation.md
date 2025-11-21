@@ -32,8 +32,7 @@ interface RecallSimulationResult {
   lot: {
     id: string
     lot_number: string
-    virtual_code: string
-    production_date: string
+    manufacture_date: string
     expiry_date: string
     product: {
       name: string
@@ -41,6 +40,8 @@ interface RecallSimulationResult {
       model_name: string
     }
   }
+  // Note: Virtual codes are stored separately (1 Lot → N Virtual Codes)
+  // Use virtual_codes table query to find lot by virtual code
   affected_organizations: Array<{
     id: string
     name: string
@@ -70,14 +71,31 @@ export function RecallSimulationPage() {
 
   const simulateMutation = useMutation({
     mutationFn: async (search: string) => {
-      // Find lot by lot_number or virtual_code
-      const { data: lot, error: lotError } = await supabase
+      // Try to find lot by lot_number first
+      let lot: any
+      const { data: lotByNumber, error: lotNumberError } = await supabase
         .from('lots')
         .select('*, product:products(*)')
-        .or(`lot_number.eq.${search},virtual_code.eq.${search}`)
+        .eq('lot_number', search)
         .single()
 
-      if (lotError || !lot) {
+      if (lotByNumber) {
+        lot = lotByNumber
+      } else {
+        // If not found by lot_number, search by virtual_code in virtual_codes table
+        // Virtual codes are stored separately (1 Lot → N Virtual Codes architecture)
+        const { data: virtualCode, error: vcError } = await supabase
+          .from('virtual_codes')
+          .select('lot_id, lot:lots(*, product:products(*))')
+          .eq('code', search)
+          .single()
+
+        if (virtualCode && virtualCode.lot) {
+          lot = virtualCode.lot
+        }
+      }
+
+      if (!lot) {
         throw new Error('Lot을 찾을 수 없습니다. Lot 번호 또는 Virtual Code를 확인해주세요.')
       }
 
@@ -176,8 +194,7 @@ export function RecallSimulationPage() {
         lot: {
           id: lot.id,
           lot_number: lot.lot_number,
-          virtual_code: lot.virtual_code,
-          production_date: lot.production_date,
+          manufacture_date: lot.manufacture_date,
           expiry_date: lot.expiry_date,
           product: {
             name: lot.product.name,
@@ -309,12 +326,8 @@ export function RecallSimulationPage() {
                   <div className="mt-1 font-mono text-base">{simulationResult.lot.lot_number}</div>
                 </div>
                 <div>
-                  <div className="text-sm font-medium text-gray-500">Virtual Code</div>
-                  <div className="mt-1 font-mono text-base">{simulationResult.lot.virtual_code}</div>
-                </div>
-                <div>
-                  <div className="text-sm font-medium text-gray-500">생산일</div>
-                  <div className="mt-1 text-base">{simulationResult.lot.production_date}</div>
+                  <div className="text-sm font-medium text-gray-500">제조일</div>
+                  <div className="mt-1 text-base">{simulationResult.lot.manufacture_date}</div>
                 </div>
                 <div>
                   <div className="text-sm font-medium text-gray-500">사용기한</div>
@@ -516,15 +529,23 @@ vi.mock('@/contexts/AuthContext', () => ({
 const mockLot = {
   id: 'lot-1',
   lot_number: 'LOT-001',
-  virtual_code: 'ABC123456789',
   quantity: 100,
-  production_date: '2025-01-01',
+  manufacture_date: '2025-01-01',
   expiry_date: '2026-01-01',
   product: {
     name: '의료용 실',
     udi_di: '12345678901234',
     model_name: 'Thread-A100',
   },
+}
+
+// Note: Virtual codes are in separate table (1 Lot → N Virtual Codes)
+const mockVirtualCode = {
+  id: 'vc-1',
+  lot_id: 'lot-1',
+  code: 'ABC123456789',
+  sequence_number: 1,
+  status: 'IN_STOCK',
 }
 
 const mockShipments = [

@@ -223,7 +223,7 @@ export function ShipmentPage() {
         .select('*, lot:lots(*, product:products(*))')
         .eq('organization_id', userData!.organization_id)
         .gt('current_quantity', 0)
-        .order('lot.production_date', { ascending: true }) // FIFO: oldest first
+        .order('lot.manufacture_date', { ascending: true }) // FIFO: oldest first
 
       if (error) throw error
       return data as InventoryWithLot[]

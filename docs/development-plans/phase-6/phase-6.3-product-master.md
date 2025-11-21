@@ -515,8 +515,10 @@ export function ProductMasterPage() {
 
 ```sql
 -- Add approval-related fields to products table
+-- Note: CHECK constraints use string literals (PostgreSQL requirement)
+-- Application code MUST use PRODUCT_STATUS constants from src/constants/status.ts
 ALTER TABLE products
-  ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'inactive', 'pending', 'rejected')),
+  ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE', 'INACTIVE', 'PENDING', 'REJECTED')),
   ADD COLUMN IF NOT EXISTS approved_at TIMESTAMPTZ,
   ADD COLUMN IF NOT EXISTS approved_by UUID REFERENCES users(id),
   ADD COLUMN IF NOT EXISTS rejected_at TIMESTAMPTZ,
@@ -529,7 +531,7 @@ CREATE INDEX IF NOT EXISTS idx_products_approved_by ON products(approved_by);
 CREATE INDEX IF NOT EXISTS idx_products_rejected_by ON products(rejected_by);
 
 -- Add comment
-COMMENT ON COLUMN products.status IS '제품 상태: active, inactive, pending, rejected';
+COMMENT ON COLUMN products.status IS '제품 상태: ACTIVE, INACTIVE, PENDING, REJECTED';
 COMMENT ON COLUMN products.approved_at IS '승인 일시';
 COMMENT ON COLUMN products.approved_by IS '승인한 관리자 ID';
 COMMENT ON COLUMN products.rejected_at IS '거부 일시';
