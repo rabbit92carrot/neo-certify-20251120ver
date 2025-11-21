@@ -103,6 +103,58 @@ neo-certify-20251120ver/
 └── tests/                     # 테스트 파일
 ```
 
+## 🔧 Constants 시스템 빠른 참조
+
+프로젝트의 모든 상수는 `src/constants/`에 체계적으로 정리되어 있습니다 (SSOT 원칙).
+
+| 파일 | 용도 | 주요 상수 | 사용 예시 |
+|------|------|-----------|-----------|
+| `status.ts` | 상태값 및 UI 라벨 | `VIRTUAL_CODE_STATUS`, `ORGANIZATION_STATUS` | `status === VIRTUAL_CODE_STATUS.IN_STOCK` |
+| `roles.ts` | 사용자 역할 및 권한 | `USER_ROLES`, `ROLE_PERMISSIONS` | `role === USER_ROLES.ADMIN` |
+| `routes.ts` | URL 경로 | `API_ENDPOINTS`, `MANUFACTURER_ROUTES` | `navigate(ROUTES.DASHBOARD)` |
+| `messages.ts` | 에러/성공 메시지 템플릿 | `ERROR_MESSAGES`, `SUCCESS_MESSAGES` | `formatErrorMessage('DUPLICATE', field)` |
+| `validation.ts` | 정규식 및 제한값 | `REGEX`, `PASSWORD_RULES`, `FILE_SIZE` | `REGEX.PHONE.test(value)` |
+| `database.ts` ⭐ | DB 테이블/함수/RLS | `TABLES`, `FUNCTIONS`, `RLS_POLICIES` | `supabase.from(TABLES.PRODUCTS)` |
+| `business-logic.ts` ⭐ | 비즈니스 규칙 | `FIFO_SORT`, `VIRTUAL_CODE_FORMAT`, `RECALL_RULES` | `FIFO_SORT.PRIMARY.FIELD` |
+| `locks.ts` ⭐ | 동시성 제어 | `LOCK_TYPES`, `LOCK_TIMEOUTS` | `acquireLock(LOCK_TYPES.INVENTORY)` |
+| `notifications.ts` ⭐ | 알림 템플릿 | `KAKAOTALK_TEMPLATES` | `TEMPLATES.AUTHENTICATION` |
+
+### 빠른 검색 가이드
+
+- **상태값 찾기** → `status.ts`
+- **경로/URL** → `routes.ts`
+- **메시지** → `messages.ts`
+- **정규식** → `validation.ts`
+- **DB 요소** → `database.ts` (테이블명, 함수명, RLS 정책명)
+- **비즈니스 로직** → `business-logic.ts` (FIFO, Virtual Code, Recall)
+- **동시성 제어** → `locks.ts`
+- **알림 템플릿** → `notifications.ts`
+
+### Import 방법
+
+```typescript
+// 개별 import
+import { VIRTUAL_CODE_STATUS } from '@/constants/status'
+import { DATABASE_CONSTANTS } from '@/constants/database'
+import { FIFO_SORT } from '@/constants/business-logic'
+
+// 중앙 import (권장)
+import {
+  VIRTUAL_CODE_STATUS,
+  DATABASE_CONSTANTS,
+  FIFO_SORT,
+} from '@/constants'
+```
+
+### 상세 문서
+
+각 constants 파일에 대한 자세한 설명은 다음 문서를 참조하세요:
+- [Constants 시스템 개요](docs/development-plans/phase-0/phase-0.5-constants-system.md)
+- [Database Constants](docs/development-plans/phase-0/constants-database.md)
+- [Business Logic Constants](docs/development-plans/phase-0/constants-business-logic.md)
+- [Locks Constants](docs/development-plans/phase-0/constants-locks.md)
+- [Notifications Constants](docs/development-plans/phase-0/constants-notifications.md)
+
 ## 📖 개발 문서
 
 모든 개발 계획은 `docs/development-plans/` 디렉토리에 Phase별로 정리되어 있습니다.

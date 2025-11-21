@@ -14,7 +14,8 @@
 - [ ] No Magic Numbers: CHECK 제약조건에 상수 활용
 - [ ] No 'any' type: TypeScript 타입 자동 생성
 - [x] Clean Code: 명확한 테이블/컬럼명
-- [ ] 테스트 작성: Migration SQL 검증 테스트
+- [ ] 테스트 작성: PostgreSQL 함수 유닛 테스트 (6개)
+- [ ] 테스트 작성: 제약 조건 및 관계 테스트 (6개)
 - [ ] Git commit: Migration 파일 커밋
 - [ ] 원칙 8: 작업 범위 100% 완료 (시간 무관)
 - [ ] 원칙 9: Context 메모리 부족 시 사용자 알림
@@ -592,7 +593,472 @@ export const NOTIFICATION_TYPE = {
 
 ## ✅ 테스트 요구사항
 
-### 1. 제약 조건 및 관계 테스트
+### 1. PostgreSQL 함수 유닛 테스트
+
+**supabase/migrations/[timestamp]_test_functions.sql** (임시 테스트용):
+
+```sql
+-- =============================================
+-- POSTGRESQL FUNCTIONS UNIT TESTS
+-- =============================================
+
+-- TEST 1: generate_unique_virtual_code()
+DO $$
+DECLARE
+  v_code1 TEXT;
+  v_code2 TEXT;
+  v_code3 TEXT;
+  i INTEGER;
+BEGIN
+  RAISE NOTICE '=== TEST 1: generate_unique_virtual_code() ===';
+
+  -- Generate multiple codes
+  SELECT generate_unique_virtual_code() INTO v_code1;
+  SELECT generate_unique_virtual_code() INTO v_code2;
+  SELECT generate_unique_virtual_code() INTO v_code3;
+
+  -- Test 1.1: Length validation
+  ASSERT LENGTH(v_code1) = 12,
+    FORMAT('Code length must be 12, got: %s (length %s)', v_code1, LENGTH(v_code1));
+  ASSERT LENGTH(v_code2) = 12,
+    FORMAT('Code length must be 12, got: %s (length %s)', v_code2, LENGTH(v_code2));
+  ASSERT LENGTH(v_code3) = 12,
+    FORMAT('Code length must be 12, got: %s (length %s)', v_code3, LENGTH(v_code3));
+
+  RAISE NOTICE 'PASS 1.1: All codes are 12 characters';
+
+  -- Test 1.2: Uniqueness validation
+  ASSERT v_code1 != v_code2,
+    FORMAT('Codes must be unique, got duplicate: %s', v_code1);
+  ASSERT v_code2 != v_code3,
+    FORMAT('Codes must be unique, got duplicate: %s', v_code2);
+  ASSERT v_code1 != v_code3,
+    FORMAT('Codes must be unique, got duplicate: %s', v_code1);
+
+  RAISE NOTICE 'PASS 1.2: All codes are unique';
+
+  -- Test 1.3: Charset validation (uppercase alphanumeric only)
+  ASSERT v_code1 ~ '^[A-Z0-9]{12}$',
+    FORMAT('Code must contain only uppercase alphanumeric, got: %s', v_code1);
+  ASSERT v_code2 ~ '^[A-Z0-9]{12}$',
+    FORMAT('Code must contain only uppercase alphanumeric, got: %s', v_code2);
+  ASSERT v_code3 ~ '^[A-Z0-9]{12}$',
+    FORMAT('Code must contain only uppercase alphanumeric, got: %s', v_code3);
+
+  RAISE NOTICE 'PASS 1.3: All codes use correct charset (A-Z, 0-9)';
+
+  -- Test 1.4: No lowercase or special characters
+  ASSERT v_code1 !~ '[a-z]',
+    FORMAT('Code must not contain lowercase, got: %s', v_code1);
+  ASSERT v_code1 !~ '[^A-Z0-9]',
+    FORMAT('Code must not contain special characters, got: %s', v_code1);
+
+  RAISE NOTICE 'PASS 1.4: No lowercase or special characters';
+
+  RAISE NOTICE '✅ TEST 1 COMPLETE: generate_unique_virtual_code() works correctly';
+  RAISE NOTICE '';
+END $$;
+
+-- TEST 2: create_lot_with_virtual_codes() transaction
+DO $$
+DECLARE
+  v_org_id UUID;
+  v_product_id UUID;
+  v_lot_id UUID;
+  v_code_count INTEGER;
+  v_distinct_sequences INTEGER;
+  v_min_sequence INTEGER;
+  v_max_sequence INTEGER;
+  v_all_codes_have_lot BOOLEAN;
+BEGIN
+  RAISE NOTICE '=== TEST 2: create_lot_with_virtual_codes() ===';
+
+  -- Setup
+  INSERT INTO organizations (type, business_number, business_license_file, name, representative_name, representative_contact, address, status)
+  VALUES ('MANUFACTURER', '999-99-99999', '/test-func.pdf', 'Test Function Mfr', 'Rep', '010-9999-9999', 'Seoul', 'ACTIVE')
+  RETURNING id INTO v_org_id;
+
+  INSERT INTO products (organization_id, name, udi_di, model_name)
+  VALUES (v_org_id, 'Test PDO Thread', 'UDI-FUNC-001', 'FUNC-MODEL-A')
+  RETURNING id INTO v_product_id;
+
+  -- Test 2.1: Execute function to create Lot + 100 Virtual Codes
+  SELECT create_lot_with_virtual_codes(
+    v_product_id,
+    'ND99999240120',
+    '2024-01-20',
+    '2025-01-20',
+    100,  -- quantity
+    v_org_id
+  ) INTO v_lot_id;
+
+  ASSERT v_lot_id IS NOT NULL, 'Lot must be created';
+  RAISE NOTICE 'PASS 2.1: Lot created with ID: %', v_lot_id;
+
+  -- Test 2.2: Verify exactly 100 virtual codes created
+  SELECT COUNT(*) INTO v_code_count
+  FROM virtual_codes
+  WHERE lot_id = v_lot_id;
+
+  ASSERT v_code_count = 100,
+    FORMAT('Must create exactly 100 virtual codes, got: %s', v_code_count);
+  RAISE NOTICE 'PASS 2.2: Exactly 100 virtual codes created';
+
+  -- Test 2.3: Verify all sequence_numbers are unique within the lot
+  SELECT COUNT(DISTINCT sequence_number) INTO v_distinct_sequences
+  FROM virtual_codes
+  WHERE lot_id = v_lot_id;
+
+  ASSERT v_distinct_sequences = 100,
+    FORMAT('All sequence numbers must be unique, got %s distinct values', v_distinct_sequences);
+  RAISE NOTICE 'PASS 2.3: All sequence numbers are unique';
+
+  -- Test 2.4: Verify sequence_numbers range from 1 to 100
+  SELECT MIN(sequence_number), MAX(sequence_number)
+  INTO v_min_sequence, v_max_sequence
+  FROM virtual_codes
+  WHERE lot_id = v_lot_id;
+
+  ASSERT v_min_sequence = 1,
+    FORMAT('Min sequence must be 1, got: %s', v_min_sequence);
+  ASSERT v_max_sequence = 100,
+    FORMAT('Max sequence must be 100, got: %s', v_max_sequence);
+  RAISE NOTICE 'PASS 2.4: Sequence numbers range from 1 to 100';
+
+  -- Test 2.5: Verify all codes have correct initial status
+  ASSERT (
+    SELECT COUNT(*) FROM virtual_codes
+    WHERE lot_id = v_lot_id AND status = 'IN_STOCK'
+  ) = 100, 'All codes must have IN_STOCK status';
+  RAISE NOTICE 'PASS 2.5: All codes have IN_STOCK status';
+
+  -- Test 2.6: Verify all codes have correct owner
+  ASSERT (
+    SELECT COUNT(*) FROM virtual_codes
+    WHERE lot_id = v_lot_id
+      AND owner_type = 'organization'
+      AND owner_id = v_org_id::TEXT
+  ) = 100, 'All codes must have correct owner';
+  RAISE NOTICE 'PASS 2.6: All codes have correct owner';
+
+  -- Test 2.7: Verify all codes have unique code values
+  ASSERT (
+    SELECT COUNT(DISTINCT code) FROM virtual_codes WHERE lot_id = v_lot_id
+  ) = 100, 'All virtual code strings must be unique';
+  RAISE NOTICE 'PASS 2.7: All virtual code strings are unique';
+
+  RAISE NOTICE '✅ TEST 2 COMPLETE: create_lot_with_virtual_codes() creates lot atomically';
+  RAISE NOTICE '';
+
+  ROLLBACK;
+END $$;
+
+-- TEST 3: shipment_transaction() - 소유권 이전 및 상태 변경
+DO $$
+DECLARE
+  v_mfr_id UUID;
+  v_dist_id UUID;
+  v_hosp_id UUID;
+  v_product_id UUID;
+  v_lot_id UUID;
+  v_code_ids UUID[];
+  v_code_id UUID;
+  v_previous_owner TEXT;
+  v_current_owner TEXT;
+  v_status TEXT;
+BEGIN
+  RAISE NOTICE '=== TEST 3: shipment_transaction() ===';
+
+  -- Setup organizations
+  INSERT INTO organizations (type, business_number, business_license_file, name, representative_name, representative_contact, address, status)
+  VALUES ('MANUFACTURER', '888-88-88888', '/test.pdf', 'Mfr', 'Rep', '010-8888-8888', 'Seoul', 'ACTIVE')
+  RETURNING id INTO v_mfr_id;
+
+  INSERT INTO organizations (type, business_number, business_license_file, name, representative_name, representative_contact, address, status)
+  VALUES ('DISTRIBUTOR', '777-77-77777', '/test.pdf', 'Dist', 'Rep', '010-7777-7777', 'Seoul', 'ACTIVE')
+  RETURNING id INTO v_dist_id;
+
+  INSERT INTO organizations (type, business_number, business_license_file, name, representative_name, representative_contact, address, status)
+  VALUES ('HOSPITAL', '666-66-66666', '/test.pdf', 'Hosp', 'Rep', '010-6666-6666', 'Seoul', 'ACTIVE')
+  RETURNING id INTO v_hosp_id;
+
+  -- Create product and lot
+  INSERT INTO products (organization_id, name, udi_di, model_name)
+  VALUES (v_mfr_id, 'PDO Thread', 'UDI-888', 'MODEL-888')
+  RETURNING id INTO v_product_id;
+
+  SELECT create_lot_with_virtual_codes(
+    v_product_id, 'ND88888240120', '2024-01-20', '2025-01-20', 10, v_mfr_id
+  ) INTO v_lot_id;
+
+  -- Get first 5 virtual code IDs for distributor shipment
+  SELECT ARRAY_AGG(id) INTO v_code_ids
+  FROM (
+    SELECT id FROM virtual_codes
+    WHERE lot_id = v_lot_id
+    ORDER BY sequence_number
+    LIMIT 5
+  ) sub;
+
+  -- Test 3.1: Shipment to DISTRIBUTOR (should set PENDING status)
+  PERFORM shipment_transaction(
+    v_code_ids,
+    v_mfr_id,
+    v_dist_id,
+    'DISTRIBUTOR'
+  );
+
+  -- Verify owner changed
+  SELECT owner_id, previous_owner_id, status INTO v_current_owner, v_previous_owner, v_status
+  FROM virtual_codes WHERE id = v_code_ids[1];
+
+  ASSERT v_current_owner = v_dist_id::TEXT,
+    FORMAT('Owner must be transferred to distributor, got: %s', v_current_owner);
+  RAISE NOTICE 'PASS 3.1: Owner transferred to distributor';
+
+  -- Verify previous_owner set
+  ASSERT v_previous_owner = v_mfr_id::TEXT,
+    FORMAT('Previous owner must be manufacturer, got: %s', v_previous_owner);
+  RAISE NOTICE 'PASS 3.2: Previous owner recorded';
+
+  -- Verify status is PENDING for distributor
+  ASSERT v_status = 'PENDING',
+    FORMAT('Status must be PENDING for distributor shipment, got: %s', v_status);
+  RAISE NOTICE 'PASS 3.3: Status set to PENDING for distributor';
+
+  -- Test 3.4: Shipment to HOSPITAL (should set IN_STOCK immediately)
+  SELECT ARRAY_AGG(id) INTO v_code_ids
+  FROM (
+    SELECT id FROM virtual_codes
+    WHERE lot_id = v_lot_id
+      AND owner_id = v_mfr_id::TEXT
+    ORDER BY sequence_number
+    LIMIT 3
+  ) sub;
+
+  PERFORM shipment_transaction(
+    v_code_ids,
+    v_mfr_id,
+    v_hosp_id,
+    'HOSPITAL'
+  );
+
+  SELECT owner_id, status INTO v_current_owner, v_status
+  FROM virtual_codes WHERE id = v_code_ids[1];
+
+  ASSERT v_current_owner = v_hosp_id::TEXT,
+    FORMAT('Owner must be hospital, got: %s', v_current_owner);
+  RAISE NOTICE 'PASS 3.4: Owner transferred to hospital';
+
+  ASSERT v_status = 'IN_STOCK',
+    FORMAT('Status must be IN_STOCK for hospital shipment, got: %s', v_status);
+  RAISE NOTICE 'PASS 3.5: Status remains IN_STOCK for hospital (no PENDING)';
+
+  RAISE NOTICE '✅ TEST 3 COMPLETE: shipment_transaction() handles ownership transfer';
+  RAISE NOTICE '';
+
+  ROLLBACK;
+END $$;
+
+-- TEST 4: treatment_transaction() - 시술 처리
+DO $$
+DECLARE
+  v_hosp_id UUID;
+  v_product_id UUID;
+  v_lot_id UUID;
+  v_code_ids UUID[];
+  v_treatment_id UUID;
+  v_patient_phone TEXT := '01011112222';
+  v_code_status TEXT;
+  v_code_owner TEXT;
+  v_detail_count INTEGER;
+  v_notification_count INTEGER;
+BEGIN
+  RAISE NOTICE '=== TEST 4: treatment_transaction() ===';
+
+  -- Setup hospital
+  INSERT INTO organizations (type, business_number, business_license_file, name, representative_name, representative_contact, address, status)
+  VALUES ('HOSPITAL', '555-55-55555', '/test.pdf', 'Hospital', 'Rep', '010-5555-5555', 'Seoul', 'ACTIVE')
+  RETURNING id INTO v_hosp_id;
+
+  -- Create product and lot
+  INSERT INTO products (organization_id, name, udi_di, model_name)
+  VALUES (v_hosp_id, 'PDO Thread', 'UDI-555', 'MODEL-555')
+  RETURNING id INTO v_product_id;
+
+  SELECT create_lot_with_virtual_codes(
+    v_product_id, 'ND55555240120', '2024-01-20', '2025-01-20', 5, v_hosp_id
+  ) INTO v_lot_id;
+
+  -- Create patient
+  INSERT INTO patients (phone_number) VALUES (v_patient_phone);
+
+  -- Get virtual code IDs
+  SELECT ARRAY_AGG(id) INTO v_code_ids
+  FROM virtual_codes WHERE lot_id = v_lot_id;
+
+  -- Test 4.1: Execute treatment transaction
+  SELECT treatment_transaction(
+    v_code_ids,
+    v_hosp_id,
+    v_patient_phone,
+    '2024-01-20'
+  ) INTO v_treatment_id;
+
+  ASSERT v_treatment_id IS NOT NULL, 'Treatment record must be created';
+  RAISE NOTICE 'PASS 4.1: Treatment record created with ID: %', v_treatment_id;
+
+  -- Test 4.2: Verify virtual codes status changed to USED
+  SELECT status, owner_id INTO v_code_status, v_code_owner
+  FROM virtual_codes WHERE id = v_code_ids[1];
+
+  ASSERT v_code_status = 'USED',
+    FORMAT('Virtual code status must be USED, got: %s', v_code_status);
+  RAISE NOTICE 'PASS 4.2: Virtual code status changed to USED';
+
+  -- Test 4.3: Verify owner changed to patient
+  ASSERT v_code_owner = v_patient_phone,
+    FORMAT('Owner must be patient phone, got: %s', v_code_owner);
+  RAISE NOTICE 'PASS 4.3: Owner changed to patient';
+
+  -- Test 4.4: Verify treatment details created
+  SELECT COUNT(*) INTO v_detail_count
+  FROM treatment_details WHERE treatment_id = v_treatment_id;
+
+  ASSERT v_detail_count = 5,
+    FORMAT('Must have 5 treatment details, got: %s', v_detail_count);
+  RAISE NOTICE 'PASS 4.4: Treatment details created';
+
+  -- Test 4.5: Verify notification created
+  SELECT COUNT(*) INTO v_notification_count
+  FROM notification_messages
+  WHERE patient_phone = v_patient_phone
+    AND type = 'AUTHENTICATION';
+
+  ASSERT v_notification_count >= 1,
+    FORMAT('Must have at least 1 authentication notification, got: %s', v_notification_count);
+  RAISE NOTICE 'PASS 4.5: Notification message created';
+
+  RAISE NOTICE '✅ TEST 4 COMPLETE: treatment_transaction() processes treatment correctly';
+  RAISE NOTICE '';
+
+  ROLLBACK;
+END $$;
+
+-- TEST 5: normalize_phone_number() - 전화번호 정규화
+DO $$
+DECLARE
+  v_result TEXT;
+BEGIN
+  RAISE NOTICE '=== TEST 5: normalize_phone_number() ===';
+
+  -- Test 5.1: Remove hyphens
+  SELECT normalize_phone_number('010-1234-5678') INTO v_result;
+  ASSERT v_result = '01012345678',
+    FORMAT('Must remove hyphens, got: %s', v_result);
+  RAISE NOTICE 'PASS 5.1: Hyphens removed';
+
+  -- Test 5.2: Remove spaces
+  SELECT normalize_phone_number('010 1234 5678') INTO v_result;
+  ASSERT v_result = '01012345678',
+    FORMAT('Must remove spaces, got: %s', v_result);
+  RAISE NOTICE 'PASS 5.2: Spaces removed';
+
+  -- Test 5.3: Remove parentheses
+  SELECT normalize_phone_number('(010)1234-5678') INTO v_result;
+  ASSERT v_result = '01012345678',
+    FORMAT('Must remove parentheses, got: %s', v_result);
+  RAISE NOTICE 'PASS 5.3: Parentheses removed';
+
+  -- Test 5.4: Already normalized
+  SELECT normalize_phone_number('01012345678') INTO v_result;
+  ASSERT v_result = '01012345678',
+    FORMAT('Already normalized phone should remain unchanged, got: %s', v_result);
+  RAISE NOTICE 'PASS 5.4: Already normalized phone unchanged';
+
+  RAISE NOTICE '✅ TEST 5 COMPLETE: normalize_phone_number() normalizes correctly';
+  RAISE NOTICE '';
+END $$;
+
+-- TEST 6: Lock functions - acquire_org_product_lock() & release_org_product_lock()
+DO $$
+DECLARE
+  v_org_id UUID := gen_random_uuid();
+  v_product_id UUID := gen_random_uuid();
+BEGIN
+  RAISE NOTICE '=== TEST 6: Advisory Lock Functions ===';
+
+  -- Test 6.1: Acquire lock
+  BEGIN
+    PERFORM acquire_org_product_lock(v_org_id, v_product_id);
+    RAISE NOTICE 'PASS 6.1: Lock acquired successfully';
+  EXCEPTION
+    WHEN OTHERS THEN
+      RAISE EXCEPTION 'Failed to acquire lock: %', SQLERRM;
+  END;
+
+  -- Test 6.2: Release lock
+  BEGIN
+    PERFORM release_org_product_lock(v_org_id, v_product_id);
+    RAISE NOTICE 'PASS 6.2: Lock released successfully';
+  EXCEPTION
+    WHEN OTHERS THEN
+      RAISE EXCEPTION 'Failed to release lock: %', SQLERRM;
+  END;
+
+  -- Test 6.3: Multiple acquire/release cycles
+  FOR i IN 1..3 LOOP
+    PERFORM acquire_org_product_lock(v_org_id, v_product_id);
+    PERFORM release_org_product_lock(v_org_id, v_product_id);
+  END LOOP;
+  RAISE NOTICE 'PASS 6.3: Multiple lock cycles work correctly';
+
+  RAISE NOTICE '✅ TEST 6 COMPLETE: Lock functions work correctly';
+  RAISE NOTICE '';
+  RAISE NOTICE '================================================';
+  RAISE NOTICE '✅ ALL POSTGRESQL FUNCTION TESTS PASSED';
+  RAISE NOTICE '================================================';
+END $$;
+```
+
+**실행**:
+
+```bash
+# 테스트 실행
+psql $(supabase status --output table | grep 'DB URL' | awk '{print $3}') < supabase/migrations/[timestamp]_test_functions.sql
+
+# 모든 테스트가 PASS 출력해야 함
+```
+
+**예상 출력**:
+```
+NOTICE:  === TEST 1: generate_unique_virtual_code() ===
+NOTICE:  PASS 1.1: All codes are 12 characters
+NOTICE:  PASS 1.2: All codes are unique
+NOTICE:  PASS 1.3: All codes use correct charset (A-Z, 0-9)
+NOTICE:  PASS 1.4: No lowercase or special characters
+NOTICE:  ✅ TEST 1 COMPLETE: generate_unique_virtual_code() works correctly
+
+NOTICE:  === TEST 2: create_lot_with_virtual_codes() ===
+NOTICE:  PASS 2.1: Lot created with ID: ...
+NOTICE:  PASS 2.2: Exactly 100 virtual codes created
+NOTICE:  PASS 2.3: All sequence numbers are unique
+NOTICE:  PASS 2.4: Sequence numbers range from 1 to 100
+NOTICE:  PASS 2.5: All codes have IN_STOCK status
+NOTICE:  PASS 2.6: All codes have correct owner
+NOTICE:  PASS 2.7: All virtual code strings are unique
+NOTICE:  ✅ TEST 2 COMPLETE: create_lot_with_virtual_codes() creates lot atomically
+
+... (추가 테스트 출력)
+
+NOTICE:  ================================================
+NOTICE:  ✅ ALL POSTGRESQL FUNCTION TESTS PASSED
+NOTICE:  ================================================
+```
+
+---
+
+### 2. 제약 조건 및 관계 테스트
 
 **supabase/migrations/[timestamp]_test_relations_tables.sql** (임시 테스트용):
 
@@ -999,13 +1465,15 @@ git push origin main
 ## ✔️ 완료 기준 (Definition of Done)
 
 - [ ] Migration 파일 생성 및 작성 완료
+- [ ] PostgreSQL 함수 마이그레이션 작성 완료 (7개 함수)
 - [ ] Supabase 로컬 DB에 마이그레이션 적용 성공
 - [ ] 모든 테이블 생성 확인 (8개)
 - [ ] 모든 인덱스 생성 확인
 - [ ] 모든 외래 키 제약 설정 확인
 - [ ] UNIQUE 제약 조건 동작 확인
 - [ ] Trigger 동작 확인 (2개)
-- [ ] 제약 조건 테스트 통과 (6개 테스트)
+- [ ] PostgreSQL 함수 유닛 테스트 통과 (6개 테스트)
+- [ ] 제약 조건 및 관계 테스트 통과 (6개 테스트)
 - [ ] Supabase Studio에서 테이블 구조 확인
 - [ ] 외래 키 관계 시각화 확인
 - [ ] TypeScript 에러 없음 (타입 생성은 Phase 1.5에서)

@@ -74,24 +74,40 @@ Timezone: Asia/Seoul (대한민국)
 - ✅ **Constants 시스템 구축 (A+ 등급)**
 
 **핵심 달성 사항**:
-- **9개 Constants 파일** 완성:
-  - status.ts (상태값 + UI 라벨)
-  - roles.ts, routes.ts, messages.ts, validation.ts
-  - database.ts (테이블 13개, 함수 7개, RLS 정책 30개)
-  - business-logic.ts (FIFO, Virtual Code, Recall, 제조사 기본값, 시간 변환)
-  - locks.ts (동시성 제어)
-  - **notifications.ts** (카카오톡 템플릿) ⭐ **신규**
 
-- **4개 상세 문서** 작성:
-  - [constants-database.md](phase-0/constants-database.md)
-  - [constants-business-logic.md](phase-0/constants-business-logic.md)
-  - [constants-locks.md](phase-0/constants-locks.md)
-  - [constants-notifications.md](phase-0/constants-notifications.md) ⭐ **신규**
+### Constants 시스템 빠른 참조
+
+**9개 Constants 파일 완성** (A+ 등급):
+
+| 파일 | 용도 | 주요 내용 | 상세 문서 |
+|------|------|-----------|----------|
+| `status.ts` | 상태값 및 UI 라벨 | 7개 상태 타입 + 5개 UI 라벨 맵 | [Phase 0.5](phase-0/phase-0.5-constants-system.md) |
+| `roles.ts` | 사용자 역할 및 권한 | 4개 역할 + 권한 매트릭스 | [Phase 0.5](phase-0/phase-0.5-constants-system.md) |
+| `routes.ts` | URL 경로 | 20+ 경로 (제조사/유통사/병원/관리자) | [Phase 0.5](phase-0/phase-0.5-constants-system.md) |
+| `messages.ts` | 에러/성공 메시지 | 30+ 템플릿 (변수 지원) | [Phase 0.5](phase-0/phase-0.5-constants-system.md) |
+| `validation.ts` | 정규식 및 제한값 | 10+ 규칙 (전화번호, 사업자등록번호 등) | [Phase 0.5](phase-0/phase-0.5-constants-system.md) |
+| `database.ts` ⭐ | DB 테이블/함수/RLS | 13 테이블, 7 함수, 30 RLS 정책 | [constants-database.md](phase-0/constants-database.md) |
+| `business-logic.ts` ⭐ | 비즈니스 규칙 | FIFO, Virtual Code, Recall, 제조사 기본값 | [constants-business-logic.md](phase-0/constants-business-logic.md) |
+| `locks.ts` ⭐ | 동시성 제어 | 3 Lock 타입, Timeout 설정 | [constants-locks.md](phase-0/constants-locks.md) |
+| `notifications.ts` ⭐ | 알림 템플릿 | 카카오톡 인증/회수 템플릿 (PRD 섹션 10) | [constants-notifications.md](phase-0/constants-notifications.md) |
+
+### 주요 특징
 
 - **SSOT 원칙 100% 준수**:
   - ✅ 정규식 중복 제거 (validation.ts 단일 출처)
   - ✅ 매직 넘버 완전 제거 (TIME_CONVERSIONS 상수)
-  - ✅ PRD와 100% 동기화 (제조사 기본값, 알림 템플릿)
+  - ✅ UI 라벨 외부화 (*_LABELS 맵으로 한글 문자열 하드코딩 제거)
+
+- **PRD와 100% 동기화**:
+  - ✅ 제조사 기본값 (PRD 섹션 6.1: LOT_PREFIX='ND', EXPIRY_MONTHS=24)
+  - ✅ 알림 템플릿 (PRD 섹션 10: 카카오톡 인증/회수 메시지)
+  - ✅ Virtual Code 형식 (12자리 영숫자)
+  - ✅ Recall 규칙 (24시간 이내)
+
+- **업계 최고 수준**:
+  - ✅ 4개 상세 문서 (400+ 라인, 사용 예시 포함)
+  - ✅ 타입 안전성 (const assertion 활용)
+  - ✅ 접근성 (중앙 export, 개별 import 모두 지원)
 
 **세부 계획**:
 - [Phase 0.1: Git 초기화](phase-0/phase-0.1-git-init.md) ✅
