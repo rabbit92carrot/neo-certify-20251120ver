@@ -1,5 +1,37 @@
 # Phase 3: 제조사 기능
 
+## 📋 개요
+
+**목표**: 제품 관리, 생산, 출고, 재고 기능 완성
+**기간**: 7-10일
+**완료 상태**: ⏳ 문서화 완료 (구현 대기)
+
+---
+
+## 🎯 개발 원칙 (Development Principles)
+
+이 Phase 작업 시 다음 9가지 개발 원칙을 준수해야 합니다:
+
+### 핵심 원칙
+1. **SSOT**: 모든 상수는 `src/constants/`에 정의
+2. **No Magic Numbers**: 리터럴 값 금지
+3. **No 'any' Type**: TypeScript strict mode
+4. **Clean Code**: 명확한 네이밍, 단일 책임
+5. **Test-Driven**: 테스트 작성 필수 (커버리지 80%+)
+6. **Conventional Commits**: `<type>(<scope>): <subject>`
+7. **Frontend-First**: UI 먼저, 백엔드 나중
+8. **Complete Task Execution**: 시간 무관 작업 범위 100% 완료 ⭐
+9. **Context Memory Alert**: 메모리 부족 시 사용자 알림 ⭐
+
+### 이 Phase 중점 원칙
+- **원칙 5 (Test-Driven)**: FIFO 알고리즘 테스트 - 모든 엣지 케이스 검증
+- **원칙 8 (범위 완료)**: Virtual Code 생성 로직 - 충돌 재시도, sequence_number 정확성 완전 구현
+- **원칙 8 (범위 완료)**: 트랜잭션 처리 - Lot 생성 + Virtual Code 생성 원자성 완전 보장
+
+**상세 내용**: [DEVELOPMENT_PRINCIPLES.md](../../DEVELOPMENT_PRINCIPLES.md)
+
+---
+
 ## 세부 계획 (8개 유닛)
 
 - **Phase 3.1**: 제품 목록 조회 UI

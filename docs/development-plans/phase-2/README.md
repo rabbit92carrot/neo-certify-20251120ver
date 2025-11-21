@@ -8,6 +8,30 @@
 
 ---
 
+## 🎯 개발 원칙 (Development Principles)
+
+이 Phase 작업 시 다음 9가지 개발 원칙을 준수해야 합니다:
+
+### 핵심 원칙
+1. **SSOT**: 모든 상수는 `src/constants/`에 정의
+2. **No Magic Numbers**: 리터럴 값 금지
+3. **No 'any' Type**: TypeScript strict mode
+4. **Clean Code**: 명확한 네이밍, 단일 책임
+5. **Test-Driven**: 테스트 작성 필수 (커버리지 80%+)
+6. **Conventional Commits**: `<type>(<scope>): <subject>`
+7. **Frontend-First**: UI 먼저, 백엔드 나중
+8. **Complete Task Execution**: 시간 무관 작업 범위 100% 완료 ⭐
+9. **Context Memory Alert**: 메모리 부족 시 사용자 알림 ⭐
+
+### 이 Phase 중점 원칙
+- **원칙 3 (No any)**: Supabase Auth 타입 안전성 - User, Session 타입 완벽 정의
+- **원칙 4 (Clean Code)**: AuthContext 로직 분리 - useAuth hook으로 간결화
+- **원칙 7 (Frontend-First)**: UI 먼저 Mock 인증으로 플로우 검증
+
+**상세 내용**: [DEVELOPMENT_PRINCIPLES.md](../../DEVELOPMENT_PRINCIPLES.md)
+
+---
+
 ## 세부 계획 (5개 유닛)
 
 - **[Phase 2.1](phase-2.1-auth-setup.md)**: Supabase Auth 통합 및 AuthContext 구현

@@ -8,6 +8,30 @@
 
 ---
 
+## 🎯 개발 원칙 (Development Principles)
+
+이 Phase 작업 시 다음 9가지 개발 원칙을 준수해야 합니다:
+
+### 핵심 원칙
+1. **SSOT**: 모든 상수는 `src/constants/`에 정의
+2. **No Magic Numbers**: 리터럴 값 금지
+3. **No 'any' Type**: TypeScript strict mode
+4. **Clean Code**: 명확한 네이밍, 단일 책임
+5. **Test-Driven**: 테스트 작성 필수 (커버리지 80%+)
+6. **Conventional Commits**: `<type>(<scope>): <subject>`
+7. **Frontend-First**: UI 먼저, 백엔드 나중
+8. **Complete Task Execution**: 시간 무관 작업 범위 100% 완료 ⭐
+9. **Context Memory Alert**: 메모리 부족 시 사용자 알림 ⭐
+
+### 이 Phase 중점 원칙
+- **원칙 1 (SSOT)**: Constants 시스템 구축 - 모든 상수의 단일 출처 확립
+- **원칙 2 (No Magic Numbers)**: 리터럴 값 완전 제거 - TIME_CONVERSIONS 등 상수화
+- **원칙 8 (범위 완료)**: 정규식 중복 제거, RLS 정책명 30개 완성 등 세밀한 작업 전부 완료
+
+**상세 내용**: [DEVELOPMENT_PRINCIPLES.md](../../DEVELOPMENT_PRINCIPLES.md)
+
+---
+
 ## 세부 계획 (5개 유닛)
 
 - **[Phase 0.1](phase-0.1-git-init.md)**: Git 초기화 및 원격 저장소 연결

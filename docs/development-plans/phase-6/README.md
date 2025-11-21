@@ -1,5 +1,37 @@
 # Phase 6: 관리자 및 Mock KakaoTalk
 
+## 📋 개요
+
+**목표**: 관리자 기능 + Mock KakaoTalk 페이지 완성
+**기간**: 4-6일
+**완료 상태**: ⏳ 문서화 완료 (구현 대기)
+
+---
+
+## 🎯 개발 원칙 (Development Principles)
+
+이 Phase 작업 시 다음 9가지 개발 원칙을 준수해야 합니다:
+
+### 핵심 원칙
+1. **SSOT**: 모든 상수는 `src/constants/`에 정의
+2. **No Magic Numbers**: 리터럴 값 금지
+3. **No 'any' Type**: TypeScript strict mode
+4. **Clean Code**: 명확한 네이밍, 단일 책임
+5. **Test-Driven**: 테스트 작성 필수 (커버리지 80%+)
+6. **Conventional Commits**: `<type>(<scope>): <subject>`
+7. **Frontend-First**: UI 먼저, 백엔드 나중
+8. **Complete Task Execution**: 시간 무관 작업 범위 100% 완료 ⭐
+9. **Context Memory Alert**: 메모리 부족 시 사용자 알림 ⭐
+
+### 이 Phase 중점 원칙
+- **원칙 4 (Clean Code)**: 관리자 UI - 테이블 컬럼 정의 명확히 분리
+- **원칙 7 (Frontend-First)**: Mock KakaoTalk - UI 먼저 DB 연동 나중
+- **원칙 1 (SSOT)**: 알림 템플릿 - notifications.ts 상수 활용
+
+**상세 내용**: [DEVELOPMENT_PRINCIPLES.md](../../DEVELOPMENT_PRINCIPLES.md)
+
+---
+
 ## 세부 계획 (5개 유닛)
 
 - **Phase 6.1**: 조직/사용자 관리
