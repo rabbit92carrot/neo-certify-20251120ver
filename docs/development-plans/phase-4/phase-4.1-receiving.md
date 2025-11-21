@@ -69,11 +69,24 @@ import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { SUCCESS_MESSAGES, ERROR_MESSAGES } from '@/constants/messages'
 import { SHIPMENT_STATUS } from '@/constants/status'
+import { VALIDATION } from '@/constants/validation'
 import type { Shipment, Lot, Product, Organization } from '@/types/database'
 
 interface ShipmentWithDetails extends Shipment {
   lot: Lot & { product: Product }
   from_organization: Organization
+}
+
+interface ShipmentDetail {
+  id: string
+  shipment_id: string
+  virtual_code_id: string
+}
+
+interface VirtualCodeWithStatus {
+  id: string
+  code: string
+  status: 'IN_STOCK' | 'PENDING' | 'USED' | 'DISPOSED'
 }
 
 export function ReceivingPage() {
@@ -125,12 +138,33 @@ export function ReceivingPage() {
   // Receive shipment mutation
   const receiveShipmentMutation = useMutation({
     mutationFn: async (shipment: ShipmentWithDetails) => {
-      // Verify virtual code
-      if (virtualCodeInput !== shipment.lot.virtual_code) {
-        throw new Error('Virtual Code가 일치하지 않습니다.')
+      /**
+       * Phase 1.3 아키텍처:
+       * - 1 Shipment = N Virtual Codes (shipment_details 테이블)
+       * - virtual_codes.code: 12자리 MD5 해시 (Phase 1.3 generate_unique_virtual_code)
+       * - 입고 시 모든 Virtual Code 검증 필요
+       */
+
+      // 1. Fetch shipment_details (N개 Virtual Code)
+      const { data: shipmentDetails, error: detailsError } = await supabase
+        .from('shipment_details')
+        .select('virtual_code:virtual_codes(id, code, status)')
+        .eq('shipment_id', shipment.id)
+
+      if (detailsError) throw detailsError
+      if (!shipmentDetails || shipmentDetails.length === 0) {
+        throw new Error('출고 상세 정보를 찾을 수 없습니다.')
       }
 
-      // Update shipment status
+      // 2. Verify virtual code (사용자가 입력한 코드가 shipment에 속하는지 확인)
+      const expectedCodes = shipmentDetails.map(d => d.virtual_code.code)
+
+      // 간단한 검증: 첫 번째 코드만 입력받아 검증 (실제로는 N개 모두 스캔 필요)
+      if (!expectedCodes.includes(virtualCodeInput)) {
+        throw new Error('Virtual Code가 이 출고 내역에 속하지 않습니다.')
+      }
+
+      // 3. Update shipment status
       const { error: shipmentError } = await supabase
         .from('shipments')
         .update({
@@ -141,38 +175,35 @@ export function ReceivingPage() {
 
       if (shipmentError) throw shipmentError
 
-      // Create or update distributor inventory
-      const { data: existingInventory, error: inventoryFetchError } = await supabase
-        .from('inventory')
-        .select('*')
-        .eq('lot_id', shipment.lot_id)
-        .eq('organization_id', userData!.organization_id)
-        .maybeSingle()
+      // 4. Update Virtual Code status (PENDING → IN_STOCK)
+      const virtualCodeIds = shipmentDetails.map(d => d.virtual_code.id)
 
-      if (inventoryFetchError) throw inventoryFetchError
-
-      if (existingInventory) {
-        // Update existing inventory
-        const { error: updateError } = await supabase
-          .from('inventory')
-          .update({
-            current_quantity: existingInventory.current_quantity + shipment.quantity,
-            last_updated_by: user!.id,
-          })
-          .eq('id', existingInventory.id)
-
-        if (updateError) throw updateError
-      } else {
-        // Create new inventory
-        const { error: createError } = await supabase.from('inventory').insert({
-          lot_id: shipment.lot_id,
-          organization_id: userData!.organization_id,
-          current_quantity: shipment.quantity,
-          last_updated_by: user!.id,
+      const { error: vcUpdateError } = await supabase
+        .from('virtual_codes')
+        .update({
+          status: 'IN_STOCK',      // 승인 완료
+          pending_to: null,         // 대기 해제 (Phase 4 README Option 2)
+          // owner_id는 이미 유통사 (출고 시 이전됨)
         })
+        .in('id', virtualCodeIds)
 
-        if (createError) throw createError
-      }
+      if (vcUpdateError) throw vcUpdateError
+
+      // 5. History 기록 (RECEIVE 액션)
+      const historyRecords = virtualCodeIds.map(vcId => ({
+        virtual_code_id: vcId,
+        action_type: 'RECEIVE',
+        from_owner_type: 'organization',
+        from_owner_id: shipment.from_organization_id,
+        to_owner_type: 'organization',
+        to_owner_id: userData!.organization_id,
+      }))
+
+      const { error: historyError } = await supabase
+        .from('history')
+        .insert(historyRecords)
+
+      if (historyError) throw historyError
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pendingShipments'] })
@@ -325,14 +356,15 @@ export function ReceivingPage() {
               <div>
                 <label className="text-sm font-medium">Virtual Code *</label>
                 <Input
-                  placeholder="12자리 Virtual Code 입력"
+                  placeholder={`${VALIDATION.VIRTUAL_CODE_LENGTH}자리 Virtual Code 입력`}
                   value={virtualCodeInput}
-                  onChange={(e) => setVirtualCodeInput(e.target.value)}
-                  maxLength={12}
-                  className="mt-1.5"
+                  onChange={(e) => setVirtualCodeInput(e.target.value.toUpperCase())}
+                  maxLength={VALIDATION.VIRTUAL_CODE_LENGTH}
+                  pattern={VALIDATION.VIRTUAL_CODE_PATTERN.source}
+                  className="mt-1.5 font-mono"
                 />
                 <p className="mt-1.5 text-xs text-gray-600">
-                  제품 라벨의 Virtual Code를 입력하세요
+                  제품 라벨의 Virtual Code를 입력하세요 (영문 대문자 + 숫자)
                 </p>
               </div>
 
@@ -349,7 +381,8 @@ export function ReceivingPage() {
                 <Button
                   onClick={handleReceiveConfirm}
                   disabled={
-                    virtualCodeInput.length !== 12 ||
+                    virtualCodeInput.length !== VALIDATION.VIRTUAL_CODE_LENGTH ||
+                    !VALIDATION.VIRTUAL_CODE_PATTERN.test(virtualCodeInput) ||
                     receiveShipmentMutation.isPending
                   }
                 >
@@ -372,15 +405,37 @@ export function ReceivingPage() {
 **파일 경로**: `src/types/database.ts` (기존 파일에 추가)
 
 ```typescript
+/**
+ * Phase 1.3 스키마 기반 타입 정의
+ * ⚠️ 주의: shipments 테이블은 lot_id, quantity 컬럼이 없음
+ * shipment_details 테이블에서 virtual_code_id 목록 관리
+ */
 export interface Shipment {
   id: string
-  lot_id: string
   from_organization_id: string
-  to_organization_id: string | null
-  quantity: number
+  to_organization_id: string
   shipment_date: string
   received_date: string | null
-  status: 'pending' | 'completed' | 'cancelled'
+  status: 'PENDING' | 'COMPLETED' | 'CANCELLED'
+  created_at: string
+}
+
+export interface ShipmentDetail {
+  id: string
+  shipment_id: string
+  virtual_code_id: string
+}
+
+export interface VirtualCode {
+  id: string
+  code: string  // 12자리 MD5 해시 (Phase 1.3 generate_unique_virtual_code)
+  lot_id: string
+  sequence_number: number  // FIFO 순서 (1, 2, 3, ..., quantity)
+  status: 'IN_STOCK' | 'PENDING' | 'USED' | 'DISPOSED'
+  owner_type: 'organization' | 'patient'
+  owner_id: string
+  pending_to: string | null
+  previous_owner_id: string | null
   created_at: string
   updated_at: string
 }
@@ -390,19 +445,47 @@ export interface Shipment {
 
 ## 🔧 Constants Definitions
 
-### 1. Shipment Status
+### 1. Validation Constants (신규)
+
+**파일 경로**: `src/constants/validation.ts`
+
+```typescript
+export const VALIDATION = {
+  // Virtual Code (Phase 1.3 generate_unique_virtual_code)
+  VIRTUAL_CODE_LENGTH: 12,
+  VIRTUAL_CODE_PATTERN: /^[A-Z0-9]{12}$/,
+
+  // Return Request (Phase 4.4)
+  RETURN_REASON_MIN_LENGTH: 5,
+  RETURN_REASON_MAX_LENGTH: 200,
+
+  // Shipment
+  QUANTITY_MIN: 1,
+  QUANTITY_MAX: 999999,
+
+  // Business Rules
+  RECALL_TIME_LIMIT_HOURS: 24,
+  EXPIRY_WARNING_DAYS: 30,
+} as const
+
+export type ValidationKey = keyof typeof VALIDATION
+```
+
+### 2. Shipment Status
 
 **파일 경로**: `src/constants/status.ts` (기존 파일에 추가)
 
 ```typescript
 export const SHIPMENT_STATUS = {
-  PENDING: 'pending',
-  COMPLETED: 'completed',
-  CANCELLED: 'cancelled',
+  PENDING: 'PENDING',
+  COMPLETED: 'COMPLETED',
+  CANCELLED: 'CANCELLED',
 } as const
+
+export type ShipmentStatus = typeof SHIPMENT_STATUS[keyof typeof SHIPMENT_STATUS]
 ```
 
-### 2. Messages
+### 3. Messages
 
 **파일 경로**: `src/constants/messages.ts` (기존 파일에 추가)
 
@@ -418,6 +501,8 @@ export const ERROR_MESSAGES = {
   // ... 기존 messages
   RECEIVING: {
     FAILED: '입고 처리에 실패했습니다.',
+    VIRTUAL_CODE_NOT_FOUND: 'Virtual Code가 이 출고 내역에 속하지 않습니다.',
+    SHIPMENT_DETAILS_NOT_FOUND: '출고 상세 정보를 찾을 수 없습니다.',
   },
 } as const
 ```

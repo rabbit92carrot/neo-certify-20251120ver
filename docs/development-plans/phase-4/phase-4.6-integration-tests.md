@@ -86,7 +86,174 @@ describe('Supply Chain Workflow Integration Test', () => {
 
 ---
 
-### 2. FIFO vs FEFO 테스트
+### 2. 다단계 유통 테스트 (PRD Section 5.1)
+
+**파일 경로**: `src/pages/distributor/__tests__/integration/multi-tier-distribution.test.tsx`
+
+```typescript
+import { describe, it, expect } from 'vitest'
+
+describe('Multi-tier Distribution Integration Test', () => {
+  it('유통사→유통사→병원 다단계 유통이 정상 동작해야 한다', async () => {
+    // PRD Section 5.1: 다단계 유통 지원
+
+    // 1. Manufacturer → Distributor A (PENDING)
+    const { data: shipmentToA } = await createShipment({
+      from: manufacturerId,
+      to: distributorAId,
+      virtualCodeIds: selectedVirtualCodes,  // N개 Virtual Code
+    })
+
+    expect(shipmentToA.status).toBe('PENDING')
+
+    // 2. Virtual Code 상태 확인 (Phase 4 README Option 2)
+    const { data: virtualCodes } = await supabase
+      .from('virtual_codes')
+      .select('status, owner_id, pending_to')
+      .in('id', selectedVirtualCodes)
+
+    expect(virtualCodes.every(vc =>
+      vc.status === 'PENDING' &&
+      vc.owner_id === distributorAId &&  // ⭐ 즉시 소유권 이전
+      vc.pending_to === distributorAId
+    )).toBe(true)
+
+    // 3. Distributor A accepts shipment
+    await acceptShipment(shipmentToA.id)
+
+    const { data: acceptedCodes } = await supabase
+      .from('virtual_codes')
+      .select('status, owner_id, pending_to')
+      .in('id', selectedVirtualCodes)
+
+    expect(acceptedCodes.every(vc =>
+      vc.status === 'IN_STOCK' &&
+      vc.owner_id === distributorAId &&
+      vc.pending_to === null
+    )).toBe(true)
+
+    // 4. Distributor A → Distributor B (PENDING)
+    const { data: shipmentToB } = await createShipment({
+      from: distributorAId,
+      to: distributorBId,
+      virtualCodeIds: selectedVirtualCodes,
+    })
+
+    expect(shipmentToB.status).toBe('PENDING')
+
+    // 5. Distributor B accepts shipment
+    await acceptShipment(shipmentToB.id)
+
+    const { data: codesAtB } = await supabase
+      .from('virtual_codes')
+      .select('status, owner_id, previous_owner_id')
+      .in('id', selectedVirtualCodes)
+
+    expect(codesAtB.every(vc =>
+      vc.owner_id === distributorBId &&
+      vc.previous_owner_id === distributorAId  // 반품 시 사용
+    )).toBe(true)
+
+    // 6. Distributor B → Hospital (즉시 COMPLETED, PRD Section 5.3)
+    const { data: shipmentToHospital } = await createShipment({
+      from: distributorBId,
+      to: hospitalId,
+      virtualCodeIds: selectedVirtualCodes,
+    })
+
+    expect(shipmentToHospital.status).toBe('COMPLETED')  // ⭐ 병원은 Pending 없음
+    expect(shipmentToHospital.received_date).toBeTruthy()
+
+    // 7. Virtual Code 최종 상태 확인
+    const { data: finalCodes } = await supabase
+      .from('virtual_codes')
+      .select('status, owner_id, owner_type')
+      .in('id', selectedVirtualCodes)
+
+    expect(finalCodes.every(vc =>
+      vc.status === 'IN_STOCK' &&
+      vc.owner_id === hospitalId &&
+      vc.owner_type === 'organization'
+    )).toBe(true)
+
+    // 8. History 추적 검증
+    const { data: history } = await supabase
+      .from('history')
+      .select('action_type, from_owner_id, to_owner_id')
+      .in('virtual_code_id', selectedVirtualCodes)
+      .order('created_at', { ascending: true })
+
+    expect(history).toHaveLength(selectedVirtualCodes.length * 3)  // 3 shipments
+    expect(history[0].from_owner_id).toBe(manufacturerId)
+    expect(history[0].to_owner_id).toBe(distributorAId)
+  })
+
+  it('유통사 간 Pending 워크플로우가 정상 동작해야 한다', async () => {
+    // 1. Distributor A → Distributor B (PENDING)
+    const { data: shipment } = await createShipment({
+      from: distributorAId,
+      to: distributorBId,
+      virtualCodeIds: virtualCodeIds,
+    })
+
+    // 2. Verify virtual_codes.pending_to
+    const { data: pendingCodes } = await supabase
+      .from('virtual_codes')
+      .select('*')
+      .in('id', virtualCodeIds)
+
+    expect(pendingCodes.every(vc =>
+      vc.status === 'PENDING' &&
+      vc.owner_id === distributorBId &&  // Option 2: 즉시 이전
+      vc.pending_to === distributorBId
+    )).toBe(true)
+
+    // 3. Distributor B accepts
+    await acceptShipment(shipment.id)
+
+    // 4. Verify final state
+    const { data: acceptedCodes } = await supabase
+      .from('virtual_codes')
+      .select('*')
+      .in('id', virtualCodeIds)
+
+    expect(acceptedCodes.every(vc =>
+      vc.status === 'IN_STOCK' &&
+      vc.owner_id === distributorBId &&
+      vc.pending_to === null
+    )).toBe(true)
+  })
+
+  it('유통사가 Pending을 거부하면 previous_owner로 반환되어야 한다', async () => {
+    // 1. Distributor A → Distributor B
+    await createShipment({
+      from: distributorAId,
+      to: distributorBId,
+      virtualCodeIds: virtualCodeIds,
+    })
+
+    // 2. Distributor B rejects
+    await rejectShipment(shipmentId, '재고 과다')
+
+    // 3. Verify return to Distributor A
+    const { data: rejectedCodes } = await supabase
+      .from('virtual_codes')
+      .select('*')
+      .in('id', virtualCodeIds)
+
+    expect(rejectedCodes.every(vc =>
+      vc.status === 'IN_STOCK' &&
+      vc.owner_id === distributorAId &&  // ⭐ previous_owner_id로 복원
+      vc.previous_owner_id === null &&
+      vc.pending_to === null
+    )).toBe(true)
+  })
+})
+```
+
+---
+
+### 3. FIFO vs FEFO 테스트
 
 **파일 경로**: `src/pages/distributor/__tests__/integration/fifo-fefo.test.tsx`
 

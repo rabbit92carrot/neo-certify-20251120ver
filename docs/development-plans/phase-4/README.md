@@ -50,47 +50,135 @@
 
 ## 핵심 워크플로우
 
-### Pending 수락 ⭐ 업데이트: 즉시 소유권 이전 모델
+### 🔥 Pending 소유권 모델 (실험적 접근 - Option 2)
+
+**PRD Section 5.5 기반 + 최적화된 플로우**
+
+#### 📌 모델 개요
+
+전통적인 Pending 모델과 다르게, 본 시스템은 **출고 시점에 즉시 소유권을 이전**합니다.
+
+```
+전통적 모델 (Option 1):
+출고 → owner_id 유지 (발송자) → 입고 수락 → owner_id 변경 (수신자)
+
+본 시스템 (Option 2):
+출고 → owner_id 즉시 변경 (수신자) → 입고 수락 → pending_to만 해제
+```
+
+#### 📌 상태 전이 다이어그램
+
+**제조사 → 유통사 출고 시**:
 ```typescript
-const acceptPending = async (pendingCodes: VirtualCode[]) => {
-  // ⭐ 출고 시 이미 owner_id = 유통사로 이전되었음
-  // 수락: pending_to만 초기화하면 됨
-
-  // 1. 상태 변경: PENDING → IN_STOCK
-  // 2. owner_id는 이미 현재 조직 (변경 불필요)
-  // 3. pending_to 초기화
-  // 4. History 기록
-
-  await supabase
-    .from(DATABASE_CONSTANTS.TABLES.VIRTUAL_CODES)
-    .update({
-      [DATABASE_CONSTANTS.COLUMNS.VIRTUAL_CODES.STATUS]: 'IN_STOCK',
-      [DATABASE_CONSTANTS.COLUMNS.VIRTUAL_CODES.PENDING_TO]: null,
-    })
-    .in('id', pendingCodes.map(c => c.id))
+// Phase 1.3: shipment_transaction(p_to_org_type='DISTRIBUTOR')
+{
+  status: 'IN_STOCK' → 'PENDING',
+  owner_id: '제조사 UUID' → '유통사 UUID',  // ⭐ 즉시 소유권 이전
+  previous_owner_id: null → '제조사 UUID',  // 반품 시 복원용
+  pending_to: null → '유통사 UUID',         // 승인 대기 표시
 }
 ```
 
-### Pending 반품 ⭐ 업데이트: previous_owner_id 활용
+**유통사 입고 수락 시**:
 ```typescript
-const rejectPending = async (pendingCodes: VirtualCode[], reason: string) => {
-  // ⭐ previous_owner_id를 사용하여 이전 소유자에게 반품
+{
+  status: 'PENDING' → 'IN_STOCK',
+  owner_id: '유통사 UUID' (유지),      // ⭐ 이미 소유자
+  previous_owner_id: '제조사 UUID',   // 유지
+  pending_to: '유통사 UUID' → null,   // 승인 완료
+}
+```
 
-  // 1. 상태 변경: PENDING → IN_STOCK
-  // 2. 소유권 복원: owner_id = previous_owner_id
-  // 3. previous_owner_id 초기화
-  // 4. pending_to 초기화
-  // 5. History 기록 (반품 사유 포함)
+**유통사 입고 거부 시**:
+```typescript
+{
+  status: 'PENDING' → 'IN_STOCK',
+  owner_id: '유통사 UUID' → '제조사 UUID',  // previous_owner_id로 복원
+  previous_owner_id: '제조사 UUID' → null,
+  pending_to: '유통사 UUID' → null,
+}
+```
+
+#### 📌 장점
+
+1. **반품 로직 단순화**: `previous_owner_id`로 즉시 복원
+2. **RLS 정책 최적화**: `owner_id` 기반 단일 필터링
+3. **재고 조회 성능**: PENDING 상태도 소유자 재고로 집계 가능
+4. **트랜잭션 일관성**: 출고 시점에 소유권 결정 완료
+
+#### 📌 주의사항
+
+- "Pending" = 물리적 소유 대기가 **아닌** "승인 대기"
+- 법적 책임은 `owner_id`가 아닌 물리적 위치 기준 (별도 정책 필요)
+- 전통적 플로우 기대 시 혼란 가능 (문서화 중요)
+
+---
+
+### Pending 수락 구현
+
+```typescript
+const acceptPending = async (virtualCodeIds: string[]) => {
+  // Phase 1.3: shipment_transaction() 사용 시 이미 owner_id = 유통사
 
   await supabase
-    .from(DATABASE_CONSTANTS.TABLES.VIRTUAL_CODES)
+    .from('virtual_codes')
     .update({
-      [DATABASE_CONSTANTS.COLUMNS.VIRTUAL_CODES.STATUS]: 'IN_STOCK',
-      [DATABASE_CONSTANTS.COLUMNS.VIRTUAL_CODES.OWNER_ID]: pendingCodes[0].previous_owner_id,
-      [DATABASE_CONSTANTS.COLUMNS.VIRTUAL_CODES.PREVIOUS_OWNER_ID]: null,
-      [DATABASE_CONSTANTS.COLUMNS.VIRTUAL_CODES.PENDING_TO]: null,
+      status: 'IN_STOCK',      // 승인 완료
+      pending_to: null,         // 대기 해제
+      // owner_id는 변경 불필요 (이미 소유자)
     })
-    .in('id', pendingCodes.map(c => c.id))
+    .in('id', virtualCodeIds)
+
+  // History 기록 (RECEIVE 액션)
+  await supabase.from('history').insert(
+    virtualCodeIds.map(vcId => ({
+      virtual_code_id: vcId,
+      action_type: 'RECEIVE',
+      from_owner_type: 'organization',
+      from_owner_id: manufacturerId,
+      to_owner_type: 'organization',
+      to_owner_id: distributorId,
+    }))
+  )
+}
+```
+
+### Pending 반품 구현
+
+```typescript
+const rejectPending = async (virtualCodeIds: string[], reason: string) => {
+  // 1. Virtual Code 조회 (previous_owner_id 확인)
+  const { data: virtualCodes } = await supabase
+    .from('virtual_codes')
+    .select('*, previous_owner_id')
+    .in('id', virtualCodeIds)
+
+  if (!virtualCodes[0].previous_owner_id) {
+    throw new Error('이전 소유자 정보가 없습니다.')
+  }
+
+  // 2. 소유권 복원
+  await supabase
+    .from('virtual_codes')
+    .update({
+      status: 'IN_STOCK',
+      owner_id: virtualCodes[0].previous_owner_id,  // ⭐ 복원
+      previous_owner_id: null,
+      pending_to: null,
+    })
+    .in('id', virtualCodeIds)
+
+  // 3. History 기록 (RETURN 액션)
+  await supabase.from('history').insert(
+    virtualCodeIds.map(vcId => ({
+      virtual_code_id: vcId,
+      action_type: 'RETURN',
+      from_owner_type: 'organization',
+      from_owner_id: distributorId,
+      to_owner_type: 'organization',
+      to_owner_id: virtualCodes[0].previous_owner_id,
+    }))
+  )
 }
 ```
 

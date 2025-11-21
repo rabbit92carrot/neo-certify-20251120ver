@@ -95,32 +95,44 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { SUCCESS_MESSAGES, ERROR_MESSAGES } from '@/constants/messages'
+import { VALIDATION } from '@/constants/validation'
 import { format } from 'date-fns'
 
 type ReturnAction = 'RESTORE' | 'DISPOSE'
 
+/**
+ * Phase 1.3 아키텍처:
+ * - return_requests 테이블: lot_id, quantity 컬럼 없음
+ * - return_details 테이블: virtual_code_id 목록 (N개 레코드)
+ */
 interface ReturnRequest {
   id: string
   requester_id: string
   receiver_id: string
-  lot_id: string
-  quantity: number
   reason: string
   status: 'PENDING' | 'APPROVED' | 'REJECTED'
   action?: ReturnAction
-  requested_by: string
   requested_at: string
   processed_by?: string
   processed_at?: string
   reject_reason?: string
-  lot: {
-    lot_number: string
-    product: {
-      name: string
-    }
-  }
   requester: {
     name: string
+  }
+}
+
+interface ReturnDetail {
+  id: string
+  return_request_id: string
+  virtual_code_id: string
+  virtual_code: {
+    code: string
+    lot: {
+      lot_number: string
+      product: {
+        name: string
+      }
+    }
   }
 }
 
@@ -151,22 +163,44 @@ export function DistributorReturnsPage() {
     enabled: !!user,
   })
 
-  // Fetch return requests
+  // Fetch return requests with details
   const { data: returnRequests } = useQuery({
     queryKey: ['distributorReturnRequests', userData?.organization_id],
     queryFn: async () => {
-      const { data, error } = await supabase
+      // 1. Fetch return_requests
+      const { data: requests, error: requestsError } = await supabase
         .from('return_requests')
-        .select(`
-          *,
-          lot:lots(lot_number, product:products(name)),
-          requester:organizations!requester_id(name)
-        `)
+        .select('*, requester:organizations!requester_id(name)')
         .eq('receiver_id', userData!.organization_id)
         .order('requested_at', { ascending: false })
 
-      if (error) throw error
-      return data as ReturnRequest[]
+      if (requestsError) throw requestsError
+
+      // 2. Fetch return_details for each request
+      const requestsWithDetails = await Promise.all(
+        requests.map(async (req) => {
+          const { data: details, error: detailsError } = await supabase
+            .from('return_details')
+            .select(`
+              *,
+              virtual_code:virtual_codes(
+                code,
+                lot:lots(lot_number, product:products(name))
+              )
+            `)
+            .eq('return_request_id', req.id)
+
+          if (detailsError) throw detailsError
+
+          return {
+            ...req,
+            details: details as ReturnDetail[],
+            quantity: details.length, // Virtual Code 개수
+          }
+        })
+      )
+
+      return requestsWithDetails
     },
     enabled: !!userData,
   })
@@ -177,7 +211,26 @@ export function DistributorReturnsPage() {
       const request = returnRequests?.find((r) => r.id === requestId)
       if (!request) throw new Error('요청을 찾을 수 없습니다.')
 
-      // 1. Update return_request status
+      /**
+       * Phase 1.3 아키텍처:
+       * - return_details에서 virtual_code_id 목록 조회
+       * - Virtual Code 소유권 복원 (previous_owner_id 활용)
+       */
+
+      // 1. Fetch return_details (Virtual Code 목록)
+      const { data: returnDetails, error: detailsError } = await supabase
+        .from('return_details')
+        .select('virtual_code_id')
+        .eq('return_request_id', requestId)
+
+      if (detailsError) throw detailsError
+      if (!returnDetails || returnDetails.length === 0) {
+        throw new Error('반품 상세 정보를 찾을 수 없습니다.')
+      }
+
+      const virtualCodeIds = returnDetails.map(d => d.virtual_code_id)
+
+      // 2. Update return_request status
       const { error: updateError } = await supabase
         .from('return_requests')
         .update({
@@ -190,55 +243,60 @@ export function DistributorReturnsPage() {
 
       if (updateError) throw updateError
 
-      // 2. Decrement hospital inventory
-      const { error: decrementError } = await supabase.rpc('decrement_inventory', {
-        p_lot_id: request.lot_id,
-        p_quantity: request.quantity,
-        p_organization_id: request.requester_id, // Hospital
-      })
-
-      if (decrementError) throw decrementError
-
-      // 3. If RESTORE: increment distributor inventory
+      // 3. Update Virtual Code ownership
       if (action === 'RESTORE') {
-        // Check if distributor already has this lot
-        const { data: existingInventory } = await supabase
-          .from('inventory')
-          .select('*')
-          .eq('lot_id', request.lot_id)
-          .eq('organization_id', userData!.organization_id)
-          .maybeSingle()
+        // RESTORE: 유통사로 소유권 복원 (previous_owner_id 활용)
+        const { data: virtualCodes, error: vcFetchError } = await supabase
+          .from('virtual_codes')
+          .select('previous_owner_id')
+          .in('id', virtualCodeIds)
 
-        if (existingInventory) {
-          await supabase
-            .from('inventory')
-            .update({
-              current_quantity: existingInventory.current_quantity + request.quantity,
-              last_updated_by: user!.id,
-            })
-            .eq('id', existingInventory.id)
-        } else {
-          await supabase.from('inventory').insert({
-            lot_id: request.lot_id,
-            organization_id: userData!.organization_id,
-            current_quantity: request.quantity,
-            initial_quantity: request.quantity,
-            last_updated_by: user!.id,
-          })
+        if (vcFetchError) throw vcFetchError
+
+        const previousOwnerId = virtualCodes[0]?.previous_owner_id
+        if (!previousOwnerId) {
+          throw new Error('이전 소유자 정보가 없습니다.')
         }
+
+        // 소유권 복원
+        const { error: restoreError } = await supabase
+          .from('virtual_codes')
+          .update({
+            status: 'IN_STOCK',
+            owner_id: previousOwnerId,  // 유통사로 복원
+            previous_owner_id: null,
+            pending_to: null,
+          })
+          .in('id', virtualCodeIds)
+
+        if (restoreError) throw restoreError
+      } else {
+        // DISPOSE: 폐기 상태로 변경
+        const { error: disposeError } = await supabase
+          .from('virtual_codes')
+          .update({
+            status: 'DISPOSED',
+          })
+          .in('id', virtualCodeIds)
+
+        if (disposeError) throw disposeError
       }
 
-      // 4. If DISPOSE: create disposal record
-      if (action === 'DISPOSE') {
-        await supabase.from('disposals').insert({
-          lot_id: request.lot_id,
-          organization_id: userData!.organization_id,
-          quantity: request.quantity,
-          reason: `반품 폐기: ${request.reason}`,
-          disposed_by: user!.id,
-          disposed_at: new Date().toISOString(),
-        })
-      }
+      // 4. History 기록
+      const historyRecords = virtualCodeIds.map(vcId => ({
+        virtual_code_id: vcId,
+        action_type: action === 'RESTORE' ? 'RETURN' : 'DISPOSE',
+        from_owner_type: 'organization',
+        from_owner_id: request.requester_id,  // 병원
+        to_owner_type: 'organization',
+        to_owner_id: action === 'RESTORE' ? userData!.organization_id : null,
+      }))
+
+      const { error: historyError } = await supabase
+        .from('history')
+        .insert(historyRecords)
+
+      if (historyError) throw historyError
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['distributorReturnRequests'] })
@@ -262,8 +320,8 @@ export function DistributorReturnsPage() {
   // Reject return request mutation
   const rejectReturnMutation = useMutation({
     mutationFn: async ({ requestId, reason }: { requestId: string; reason: string }) => {
-      if (!reason || reason.trim().length < 5) {
-        throw new Error('거부 사유를 5자 이상 입력해주세요.')
+      if (!reason || reason.trim().length < VALIDATION.RETURN_REASON_MIN_LENGTH) {
+        throw new Error(`거부 사유를 ${VALIDATION.RETURN_REASON_MIN_LENGTH}자 이상 입력해주세요.`)
       }
 
       const { error } = await supabase

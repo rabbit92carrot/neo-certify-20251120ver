@@ -1,0 +1,169 @@
+/**
+ * validation.ts - Phase 4 Validation Constants
+ *
+ * 파일 위치: src/constants/validation.ts
+ *
+ * Phase 4 작업 시 이 파일을 src/constants/validation.ts로 생성하세요.
+ * 모든 하드코딩된 숫자/문자열을 제거하기 위한 SSOT(Single Source of Truth)입니다.
+ */
+
+/**
+ * VALIDATION Constants
+ *
+ * Phase 1.3 아키텍처 기반:
+ * - Virtual Code: 12자리 MD5 해시 (generate_unique_virtual_code 함수)
+ * - Sequence Number: UUID v4 + sequence_number 사용 (FIFO 정렬)
+ */
+export const VALIDATION = {
+  // Virtual Code (Phase 1.3 generate_unique_virtual_code)
+  VIRTUAL_CODE_LENGTH: 12,
+  VIRTUAL_CODE_PATTERN: /^[A-Z0-9]{12}$/,
+  VIRTUAL_CODE_MIN_LENGTH: 12,
+  VIRTUAL_CODE_MAX_LENGTH: 12,
+
+  // Return Request (Phase 4.4)
+  RETURN_REASON_MIN_LENGTH: 5,
+  RETURN_REASON_MAX_LENGTH: 200,
+
+  // Shipment
+  QUANTITY_MIN: 1,
+  QUANTITY_MAX: 999999,
+
+  // Business Rules (PRD Section 15)
+  RECALL_TIME_LIMIT_HOURS: 24,
+  EXPIRY_WARNING_DAYS: 30,
+
+  // Lot Number (Phase 3.4)
+  LOT_NUMBER_MIN_LENGTH: 3,
+  LOT_NUMBER_MAX_LENGTH: 50,
+  LOT_NUMBER_PATTERN: /^[A-Z0-9-]+$/,
+
+  // Product Name
+  PRODUCT_NAME_MIN_LENGTH: 2,
+  PRODUCT_NAME_MAX_LENGTH: 100,
+
+  // Organization Name
+  ORGANIZATION_NAME_MIN_LENGTH: 2,
+  ORGANIZATION_NAME_MAX_LENGTH: 100,
+
+  // User Name
+  USER_NAME_MIN_LENGTH: 2,
+  USER_NAME_MAX_LENGTH: 50,
+
+  // Email
+  EMAIL_PATTERN: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+
+  // Password
+  PASSWORD_MIN_LENGTH: 8,
+  PASSWORD_MAX_LENGTH: 128,
+  PASSWORD_PATTERN: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/,
+
+  // Pagination
+  DEFAULT_PAGE_SIZE: 20,
+  MAX_PAGE_SIZE: 100,
+} as const
+
+export type ValidationKey = keyof typeof VALIDATION
+
+/**
+ * Validation Helper Functions
+ */
+
+export const validateVirtualCode = (code: string): boolean => {
+  return (
+    code.length === VALIDATION.VIRTUAL_CODE_LENGTH &&
+    VALIDATION.VIRTUAL_CODE_PATTERN.test(code)
+  )
+}
+
+export const validateReturnReason = (reason: string): boolean => {
+  const trimmed = reason.trim()
+  return (
+    trimmed.length >= VALIDATION.RETURN_REASON_MIN_LENGTH &&
+    trimmed.length <= VALIDATION.RETURN_REASON_MAX_LENGTH
+  )
+}
+
+export const validateQuantity = (quantity: number): boolean => {
+  return (
+    Number.isInteger(quantity) &&
+    quantity >= VALIDATION.QUANTITY_MIN &&
+    quantity <= VALIDATION.QUANTITY_MAX
+  )
+}
+
+export const validateLotNumber = (lotNumber: string): boolean => {
+  return (
+    lotNumber.length >= VALIDATION.LOT_NUMBER_MIN_LENGTH &&
+    lotNumber.length <= VALIDATION.LOT_NUMBER_MAX_LENGTH &&
+    VALIDATION.LOT_NUMBER_PATTERN.test(lotNumber)
+  )
+}
+
+export const validateEmail = (email: string): boolean => {
+  return VALIDATION.EMAIL_PATTERN.test(email)
+}
+
+export const validatePassword = (password: string): boolean => {
+  return (
+    password.length >= VALIDATION.PASSWORD_MIN_LENGTH &&
+    password.length <= VALIDATION.PASSWORD_MAX_LENGTH &&
+    VALIDATION.PASSWORD_PATTERN.test(password)
+  )
+}
+
+/**
+ * Error Messages for Validation
+ *
+ * src/constants/messages.ts에도 동일한 메시지 추가 필요
+ */
+export const VALIDATION_ERROR_MESSAGES = {
+  VIRTUAL_CODE_INVALID: `Virtual Code는 ${VALIDATION.VIRTUAL_CODE_LENGTH}자리 영문 대문자와 숫자로 구성되어야 합니다.`,
+  RETURN_REASON_TOO_SHORT: `반품 사유는 최소 ${VALIDATION.RETURN_REASON_MIN_LENGTH}자 이상이어야 합니다.`,
+  RETURN_REASON_TOO_LONG: `반품 사유는 최대 ${VALIDATION.RETURN_REASON_MAX_LENGTH}자 이하여야 합니다.`,
+  QUANTITY_INVALID: `수량은 ${VALIDATION.QUANTITY_MIN}개 이상 ${VALIDATION.QUANTITY_MAX}개 이하여야 합니다.`,
+  LOT_NUMBER_INVALID: `Lot 번호는 ${VALIDATION.LOT_NUMBER_MIN_LENGTH}자 이상 ${VALIDATION.LOT_NUMBER_MAX_LENGTH}자 이하의 영문 대문자, 숫자, 하이픈(-)만 사용 가능합니다.`,
+  EMAIL_INVALID: '유효한 이메일 주소를 입력해주세요.',
+  PASSWORD_WEAK: '비밀번호는 8자 이상이며 대문자, 소문자, 숫자, 특수문자를 포함해야 합니다.',
+} as const
+
+/**
+ * Usage Examples:
+ *
+ * 1. React Component:
+ * ```tsx
+ * import { VALIDATION, validateVirtualCode } from '@/constants/validation'
+ *
+ * <Input
+ *   maxLength={VALIDATION.VIRTUAL_CODE_LENGTH}
+ *   pattern={VALIDATION.VIRTUAL_CODE_PATTERN.source}
+ *   onChange={(e) => {
+ *     const code = e.target.value.toUpperCase()
+ *     if (validateVirtualCode(code)) {
+ *       // Valid
+ *     }
+ *   }}
+ * />
+ * ```
+ *
+ * 2. Zod Schema:
+ * ```ts
+ * import { VALIDATION } from '@/constants/validation'
+ *
+ * const schema = z.object({
+ *   virtualCode: z.string()
+ *     .length(VALIDATION.VIRTUAL_CODE_LENGTH)
+ *     .regex(VALIDATION.VIRTUAL_CODE_PATTERN),
+ *   returnReason: z.string()
+ *     .min(VALIDATION.RETURN_REASON_MIN_LENGTH)
+ *     .max(VALIDATION.RETURN_REASON_MAX_LENGTH),
+ * })
+ * ```
+ *
+ * 3. Database Query:
+ * ```ts
+ * if (quantity < VALIDATION.QUANTITY_MIN || quantity > VALIDATION.QUANTITY_MAX) {
+ *   throw new Error(VALIDATION_ERROR_MESSAGES.QUANTITY_INVALID)
+ * }
+ * ```
+ */

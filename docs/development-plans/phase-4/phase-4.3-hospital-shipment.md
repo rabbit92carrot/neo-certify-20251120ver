@@ -126,20 +126,39 @@ export function HospitalShipmentPage() {
   })
 
   /**
-   * FIFO 할당 알고리즘
+   * FIFO 할당 알고리즘 (PRD Section 15.1)
    *
-   * 보강 작업 업데이트:
-   * - 1차: 제조일(manufacture_date)이 빠른 Lot 우선 (오래된 것 먼저)
-   * - 2차: 사용기한(expiry_date)이 가까운 Lot 우선
-   * - 3차: Virtual Code의 sequence_number 순서 (Lot 내부 순서)
-   * - 4차: Lot 생성일(created_at) 기준
+   * Phase 1.3 아키텍처 기반:
+   * - 1 Lot = N Virtual Codes (virtual_codes 테이블)
+   * - Virtual Code 단위 할당 (Lot 단위 아님)
    *
-   * ⭐ 주의: 데이터베이스 쿼리 시 이미 FIFO 정렬되어 있다고 가정합니다.
-   * inventory 조회 시 .order() 메서드로 정렬 필요.
+   * 정렬 우선순위:
+   * 1차: lots.manufacture_date ASC (제조일이 빠른 Lot 우선)
+   * 2차: lots.expiry_date ASC (사용기한이 가까운 Lot 우선)
+   * 3차: virtual_codes.sequence_number ASC (⭐ Lot 내부 순서, Phase 1.3)
+   *      - create_lot_with_virtual_codes() 함수에서 1~quantity 할당
+   *      - UUID v4 사용 시 sequence_number로 명시적 순서 보장
+   * 4차: lots.created_at ASC (Lot 생성일)
+   *
+   * 데이터베이스 쿼리 예시:
+   * ```sql
+   * SELECT vc.*
+   * FROM virtual_codes vc
+   * JOIN lots l ON vc.lot_id = l.id
+   * WHERE l.product_id = $1
+   *   AND vc.status = 'IN_STOCK'
+   *   AND vc.owner_id = $2
+   * ORDER BY
+   *   l.manufacture_date ASC,
+   *   l.expiry_date ASC,
+   *   vc.sequence_number ASC,  -- ⭐ 명시적 순서
+   *   l.created_at ASC
+   * LIMIT $3
+   * ```
    *
    * @param productId - 제품 ID
    * @param requestedQty - 요청 수량
-   * @returns 할당된 Lot 목록 (FIFO 정렬 순서)
+   * @returns 할당된 Virtual Code 목록 (FIFO 정렬 순서)
    * @throws 재고가 없거나 부족한 경우 에러
    */
   const allocateFIFO = (productId: string, requestedQty: number) => {
@@ -185,76 +204,81 @@ export function HospitalShipmentPage() {
       if (cart.length === 0) throw new Error('장바구니가 비어 있습니다.')
       if (!selectedTargetId) throw new Error(`${targetType === 'HOSPITAL' ? '병원' : '유통사'}을 선택해주세요.`)
 
+      /**
+       * Phase 1.3 아키텍처:
+       * - shipments 테이블: lot_id, quantity 컬럼 없음
+       * - shipment_details 테이블: virtual_code_id 목록 (N개 레코드)
+       */
+
       for (const item of cart) {
-        for (const { lot, quantity: shipQty } of item.selectedLots) {
-          // PRD Section 5.3: 병원 출고 시 즉시 소유권 이전 (Pending 없음)
-          if (targetType === 'HOSPITAL') {
-            // Create shipment (즉시 COMPLETED)
-            const { data: shipment } = await supabase.from('shipments').insert({
-              lot_id: lot.id,
-              from_organization_id: userData!.organization_id,
-              to_organization_id: selectedTargetId,
-              quantity: shipQty,
-              shipment_date: format(new Date(), 'yyyy-MM-dd'),
-              received_date: format(new Date(), 'yyyy-MM-dd'), // 즉시 입고
-              status: SHIPMENT_STATUS.COMPLETED, // 즉시 완료
-            }).select().single()
+        // 1. FIFO로 Virtual Code 선택 (sequence_number 순서)
+        const { data: virtualCodes, error: vcError } = await supabase
+          .from('virtual_codes')
+          .select('id, lot_id, sequence_number')
+          .eq('owner_id', userData!.organization_id)
+          .eq('owner_type', 'organization')
+          .eq('status', 'IN_STOCK')
+          .in('lot_id', item.selectedLots.map(l => l.lot.id))
+          .order('sequence_number', { ascending: true })
+          .limit(item.quantity)
 
-            if (!shipment) throw new Error('출고 생성 실패')
-
-            // Decrement sender inventory
-            await supabase.rpc('decrement_inventory', {
-              p_lot_id: lot.id,
-              p_organization_id: userData!.organization_id,
-              p_quantity: shipQty,
-              p_user_id: user!.id,
-            })
-
-            // Increment receiver inventory (병원)
-            const { data: existingInventory } = await supabase
-              .from('inventory')
-              .select('id, current_quantity')
-              .eq('lot_id', lot.id)
-              .eq('organization_id', selectedTargetId)
-              .maybeSingle()
-
-            if (existingInventory) {
-              // 기존 재고 업데이트
-              await supabase
-                .from('inventory')
-                .update({
-                  current_quantity: existingInventory.current_quantity + shipQty,
-                  updated_at: new Date().toISOString(),
-                })
-                .eq('id', existingInventory.id)
-            } else {
-              // 신규 재고 생성
-              await supabase.from('inventory').insert({
-                lot_id: lot.id,
-                organization_id: selectedTargetId,
-                current_quantity: shipQty,
-              })
-            }
-          } else {
-            // 유통사 출고: Pending 워크플로우 적용
-            await supabase.from('shipments').insert({
-              lot_id: lot.id,
-              from_organization_id: userData!.organization_id,
-              to_organization_id: selectedTargetId,
-              quantity: shipQty,
-              shipment_date: format(new Date(), 'yyyy-MM-dd'),
-              status: SHIPMENT_STATUS.PENDING, // 수락 대기
-            })
-
-            // Decrement sender inventory
-            await supabase.rpc('decrement_inventory', {
-              p_lot_id: lot.id,
-              p_organization_id: userData!.organization_id,
-              p_quantity: shipQty,
-              p_user_id: user!.id,
-            })
-          }
+        if (vcError) throw vcError
+        if (!virtualCodes || virtualCodes.length < item.quantity) {
+          throw new Error('재고 부족: Virtual Code를 충분히 할당할 수 없습니다.')
         }
+
+        // 2. Create Shipment
+        const { data: shipment, error: shipmentError } = await supabase
+          .from('shipments')
+          .insert({
+            from_organization_id: userData!.organization_id,
+            to_organization_id: selectedTargetId,
+            shipment_date: format(new Date(), 'yyyy-MM-dd'),
+            received_date: targetType === 'HOSPITAL' ? format(new Date(), 'yyyy-MM-dd') : null, // 병원은 즉시
+            status: targetType === 'HOSPITAL' ? SHIPMENT_STATUS.COMPLETED : SHIPMENT_STATUS.PENDING,
+          })
+          .select()
+          .single()
+
+        if (shipmentError) throw shipmentError
+
+        // 3. Create ShipmentDetails (N개)
+        const shipmentDetails = virtualCodes.map(vc => ({
+          shipment_id: shipment.id,
+          virtual_code_id: vc.id,
+        }))
+
+        const { error: detailsError } = await supabase
+          .from('shipment_details')
+          .insert(shipmentDetails)
+
+        if (detailsError) throw detailsError
+
+        // 4. Update Virtual Code status (Phase 1.3 shipment_transaction 함수 사용)
+        const { error: rpcError } = await supabase.rpc('shipment_transaction', {
+          p_virtual_code_ids: virtualCodes.map(vc => vc.id),
+          p_from_org_id: userData!.organization_id,
+          p_to_org_id: selectedTargetId,
+          p_to_org_type: targetType, // 'HOSPITAL' | 'DISTRIBUTOR'
+        })
+
+        if (rpcError) throw rpcError
+
+        // 5. History 기록
+        const historyRecords = virtualCodes.map(vc => ({
+          virtual_code_id: vc.id,
+          action_type: 'SHIPMENT',
+          from_owner_type: 'organization',
+          from_owner_id: userData!.organization_id,
+          to_owner_type: 'organization',
+          to_owner_id: selectedTargetId,
+        }))
+
+        const { error: historyError } = await supabase
+          .from('history')
+          .insert(historyRecords)
+
+        if (historyError) throw historyError
       }
     },
     onSuccess: () => {
