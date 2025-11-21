@@ -8,6 +8,9 @@
 
 이 Phase에서는 다단계 회원가입 프로세스를 구현합니다. 역할 선택, 사업자등록번호 조회, 조직 정보 입력, 사업자등록증 업로드, 회원 정보 입력의 5단계로 구성됩니다.
 
+> **⭐ Phase 2 승인 정책**: 회원가입 시 조직 상태를 `ACTIVE`로 설정하여 관리자 승인 없이 즉시 로그인 가능합니다.
+> 관리자 승인 로직은 코드에 주석으로 구현해두며, Phase 6에서 활성화합니다.
+
 ---
 
 ## 🎯 개발 원칙 준수 체크리스트
@@ -512,7 +515,11 @@ export function OrganizationForm({
           representative_name: data.representativeName,
           representative_contact: data.representativeContact,
           address: data.address,
-          status: 'PENDING_APPROVAL',
+          status: 'ACTIVE', // ⭐ Phase 2: 즉시 활성화 (PRD 4.2 가입 프로세스 준수)
+          // Phase 6 활성화 시:
+          // 1. status: 'PENDING_APPROVAL' 로 변경
+          // 2. LoginPage에 승인 상태 체크 로직 추가
+          // 3. 관리자 승인 페이지에서 ACTIVE 전환
         })
         .select()
         .single()
@@ -521,7 +528,8 @@ export function OrganizationForm({
 
       toast({
         title: SUCCESS_MESSAGES.ORGANIZATION.CREATED,
-        description: '관리자 승인 후 이용 가능합니다.',
+        description: 'Phase 2: 조직이 즉시 활성화되었습니다. 바로 로그인하실 수 있습니다.',
+        // Phase 6 이후: description: '관리자 승인 후 이용 가능합니다.'
       })
 
       onSubmit(organization.id)

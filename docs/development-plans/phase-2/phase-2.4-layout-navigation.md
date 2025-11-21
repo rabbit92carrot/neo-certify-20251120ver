@@ -123,6 +123,7 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { cn } from '@/lib/utils'
 import { ORGANIZATION_TYPE } from '@/constants/status'
+import { ICONS } from '@/constants/ui' // ⭐ 아이콘 상수 import
 import { Button } from '@/components/ui/button'
 import type { Database } from '@/types/database'
 
@@ -135,38 +136,38 @@ interface SidebarProps {
   onClose?: () => void
 }
 
-// 역할별 메뉴 아이템
+// 역할별 메뉴 아이템 (아이콘은 ICONS 상수 사용)
 const MENU_ITEMS = {
   [ORGANIZATION_TYPE.MANUFACTURER]: [
-    { label: '대시보드', path: '/manufacturer/dashboard', icon: '📊' },
-    { label: '제품 관리', path: '/manufacturer/products', icon: '📦' },
-    { label: '생산 등록', path: '/manufacturer/production', icon: '🏭' },
-    { label: '출고', path: '/manufacturer/shipment', icon: '🚚' },
-    { label: '재고 조회', path: '/manufacturer/inventory', icon: '📋' },
-    { label: '이력 조회', path: '/manufacturer/history', icon: '📜' },
-    { label: '설정', path: '/manufacturer/settings', icon: '⚙️' },
+    { label: '대시보드', path: '/manufacturer/dashboard', icon: ICONS.DASHBOARD },
+    { label: '제품 관리', path: '/manufacturer/products', icon: ICONS.PRODUCTS },
+    { label: '생산 등록', path: '/manufacturer/production', icon: ICONS.PRODUCTION },
+    { label: '출고', path: '/manufacturer/shipment', icon: ICONS.OUTGOING },
+    { label: '재고 조회', path: '/manufacturer/inventory', icon: ICONS.INVENTORY },
+    { label: '이력 조회', path: '/manufacturer/history', icon: ICONS.HISTORY },
+    { label: '설정', path: '/manufacturer/settings', icon: ICONS.SETTINGS },
   ],
   [ORGANIZATION_TYPE.DISTRIBUTOR]: [
-    { label: '대시보드', path: '/distributor/dashboard', icon: '📊' },
-    { label: '입고 (Pending)', path: '/distributor/incoming', icon: '📥' },
-    { label: '출고', path: '/distributor/shipment', icon: '📤' },
-    { label: '재고 조회', path: '/distributor/inventory', icon: '📋' },
-    { label: '이력 조회', path: '/distributor/history', icon: '📜' },
+    { label: '대시보드', path: '/distributor/dashboard', icon: ICONS.DASHBOARD },
+    { label: '입고 (Pending)', path: '/distributor/incoming', icon: ICONS.INCOMING },
+    { label: '출고', path: '/distributor/shipment', icon: ICONS.OUTGOING },
+    { label: '재고 조회', path: '/distributor/inventory', icon: ICONS.INVENTORY },
+    { label: '이력 조회', path: '/distributor/history', icon: ICONS.HISTORY },
   ],
   [ORGANIZATION_TYPE.HOSPITAL]: [
-    { label: '대시보드', path: '/hospital/dashboard', icon: '📊' },
-    { label: '시술 등록', path: '/hospital/treatment', icon: '💉' },
-    { label: '재고 조회', path: '/hospital/inventory', icon: '📋' },
-    { label: '이력 조회', path: '/hospital/history', icon: '📜' },
-    { label: '반품', path: '/hospital/return', icon: '↩️' },
+    { label: '대시보드', path: '/hospital/dashboard', icon: ICONS.DASHBOARD },
+    { label: '시술 등록', path: '/hospital/treatment', icon: ICONS.TREATMENT },
+    { label: '재고 조회', path: '/hospital/inventory', icon: ICONS.INVENTORY },
+    { label: '이력 조회', path: '/hospital/history', icon: ICONS.HISTORY },
+    { label: '반품', path: '/hospital/return', icon: ICONS.RETURNS },
   ],
   ADMIN: [
-    { label: '대시보드', path: '/admin/dashboard', icon: '📊' },
-    { label: '조직 관리', path: '/admin/organizations', icon: '🏢' },
-    { label: '사용자 관리', path: '/admin/users', icon: '👥' },
-    { label: '가입 승인', path: '/admin/approvals', icon: '✅' },
-    { label: '전체 이력', path: '/admin/history', icon: '📜' },
-    { label: '회수 모니터링', path: '/admin/recall', icon: '⚠️' },
+    { label: '대시보드', path: '/admin/dashboard', icon: ICONS.DASHBOARD },
+    { label: '조직 관리', path: '/admin/organizations', icon: ICONS.ORGANIZATIONS },
+    { label: '사용자 관리', path: '/admin/users', icon: ICONS.USERS },
+    { label: '가입 승인', path: '/admin/approvals', icon: ICONS.APPROVALS },
+    { label: '전체 이력', path: '/admin/history', icon: ICONS.HISTORY },
+    { label: '회수 모니터링', path: '/admin/recall', icon: ICONS.RECALL },
   ],
 } as const
 
@@ -231,7 +232,7 @@ export function Sidebar({ collapsed, onToggle, onClose }: SidebarProps) {
             onClick={onClose}
             className="md:hidden"
           >
-            ✕
+            {ICONS.CLOSE}
           </Button>
         )}
       </div>
@@ -287,6 +288,7 @@ import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
+import { ICONS } from '@/constants/ui' // ⭐ 아이콘 상수 import
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -354,7 +356,7 @@ export function Header({ onMenuClick }: HeaderProps) {
         onClick={onMenuClick}
         className="md:hidden"
       >
-        ☰
+        {ICONS.MENU}
       </Button>
 
       {/* 페이지 제목 (선택 사항) */}
@@ -387,13 +389,13 @@ export function Header({ onMenuClick }: HeaderProps) {
           <DropdownMenuSeparator />
 
           <DropdownMenuItem onClick={() => navigate('/profile')}>
-            ⚙️ 내 정보 수정
+            {ICONS.SETTINGS} 내 정보 수정
           </DropdownMenuItem>
 
           <DropdownMenuSeparator />
 
           <DropdownMenuItem onClick={handleSignOut} className="text-red-600">
-            🚪 로그아웃
+            {ICONS.LOGOUT} 로그아웃
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -419,20 +421,64 @@ type UserWithOrganization = UserProfile & {
 
 ## 🔧 Constants 정의
 
-**src/constants/layout.ts** (생성):
+**src/constants/ui.ts** (신규 생성 - 아이콘 및 레이아웃 상수):
 ```typescript
-export const SIDEBAR_WIDTH = {
-  EXPANDED: 256, // 16rem
-  COLLAPSED: 64,  // 4rem
+/**
+ * UI 아이콘 상수 (이모지/유니코드)
+ * - SSOT 원칙에 따라 모든 아이콘을 한 곳에서 관리
+ * - Phase 2.4 Sidebar에서 사용
+ * - 향후 Lucide Icons 등 아이콘 라이브러리 전환 시에도 SSOT 유지 가능
+ */
+export const ICONS = {
+  // Dashboard
+  DASHBOARD: '📊',
+
+  // 제조사 메뉴
+  PRODUCTS: '📦',
+  PRODUCTION: '🏭',
+  OUTGOING: '🚚',
+  INVENTORY: '📋',
+  SETTINGS: '⚙️',
+
+  // 유통사 메뉴
+  INCOMING: '📥',
+
+  // 병원 메뉴
+  TREATMENT: '💉',
+  RETURNS: '↩️',
+
+  // 관리자 메뉴
+  ORGANIZATIONS: '🏢',
+  USERS: '👥',
+  APPROVALS: '✅',
+  RECALL: '⚠️',
+
+  // 공통
+  HISTORY: '📜',
+  LOGOUT: '🚪',
+
+  // UI 컨트롤 (유니코드 문자)
+  MENU: '☰',    // Hamburger menu (유니코드)
+  CLOSE: '✕',   // Close button (유니코드)
 } as const
 
+/**
+ * 레이아웃 상수
+ */
+export const LAYOUT = {
+  SIDEBAR_WIDTH_EXPANDED: 256, // 16rem
+  SIDEBAR_WIDTH_COLLAPSED: 64,  // 4rem
+  HEADER_HEIGHT: 64, // 4rem
+} as const
+
+/**
+ * 반응형 브레이크포인트
+ */
 export const BREAKPOINTS = {
   MOBILE: 768, // md breakpoint
   TABLET: 1024, // lg breakpoint
   DESKTOP: 1280, // xl breakpoint
 } as const
-
-export const HEADER_HEIGHT = 64 // 4rem
 ```
 
 ---
@@ -441,9 +487,9 @@ export const HEADER_HEIGHT = 64 // 4rem
 
 **생성**:
 - `src/components/layout/BaseLayout.tsx`
-- `src/components/layout/Sidebar.tsx`
-- `src/components/layout/Header.tsx`
-- `src/constants/layout.ts`
+- `src/components/layout/Sidebar.tsx` (ICONS 상수 사용)
+- `src/components/layout/Header.tsx` (ICONS 상수 사용)
+- `src/constants/ui.ts` ⭐ (ICONS, LAYOUT, BREAKPOINTS 상수)
 
 ---
 
