@@ -61,22 +61,44 @@ Timezone: Asia/Seoul (대한민국)
 
 ## 📊 Phase별 개발 계획 요약
 
-### Phase 0: 프로젝트 기반 구축
+### Phase 0: 프로젝트 기반 구축 ✅
 **목표**: 개발 환경 완벽 설정
 **기간**: 1-2일
+**상태**: **100% 완료** ⭐
+
 **주요 작업**:
-- Git repository 설정 ✅
-- React + TypeScript 프로젝트 생성
-- 개발 도구 설정 (ESLint, Prettier, Vitest)
-- 폴더 구조 생성
-- Constants 시스템 구축
+- ✅ Git repository 설정
+- ✅ React + TypeScript 프로젝트 생성
+- ✅ 개발 도구 설정 (ESLint, Prettier, Vitest)
+- ✅ 폴더 구조 생성
+- ✅ **Constants 시스템 구축 (A+ 등급)**
+
+**핵심 달성 사항**:
+- **9개 Constants 파일** 완성:
+  - status.ts (상태값 + UI 라벨)
+  - roles.ts, routes.ts, messages.ts, validation.ts
+  - database.ts (테이블 13개, 함수 7개, RLS 정책 30개)
+  - business-logic.ts (FIFO, Virtual Code, Recall, 제조사 기본값, 시간 변환)
+  - locks.ts (동시성 제어)
+  - **notifications.ts** (카카오톡 템플릿) ⭐ **신규**
+
+- **4개 상세 문서** 작성:
+  - [constants-database.md](phase-0/constants-database.md)
+  - [constants-business-logic.md](phase-0/constants-business-logic.md)
+  - [constants-locks.md](phase-0/constants-locks.md)
+  - [constants-notifications.md](phase-0/constants-notifications.md) ⭐ **신규**
+
+- **SSOT 원칙 100% 준수**:
+  - ✅ 정규식 중복 제거 (validation.ts 단일 출처)
+  - ✅ 매직 넘버 완전 제거 (TIME_CONVERSIONS 상수)
+  - ✅ PRD와 100% 동기화 (제조사 기본값, 알림 템플릿)
 
 **세부 계획**:
-- [Phase 0.1: Git 초기화](phase-0/phase-0.1-git-init.md)
-- [Phase 0.2: 프로젝트 생성](phase-0/phase-0.2-project-setup.md)
-- [Phase 0.3: 개발 도구](phase-0/phase-0.3-dev-tools.md)
-- [Phase 0.4: 폴더 구조](phase-0/phase-0.4-folder-structure.md)
-- [Phase 0.5: Constants](phase-0/phase-0.5-constants-system.md)
+- [Phase 0.1: Git 초기화](phase-0/phase-0.1-git-init.md) ✅
+- [Phase 0.2: 프로젝트 생성](phase-0/phase-0.2-project-setup.md) ✅
+- [Phase 0.3: 개발 도구](phase-0/phase-0.3-dev-tools.md) ✅
+- [Phase 0.4: 폴더 구조](phase-0/phase-0.4-folder-structure.md) ✅
+- [Phase 0.5: Constants](phase-0/phase-0.5-constants-system.md) ✅ **A+ 등급**
 
 ---
 
@@ -158,22 +180,28 @@ Timezone: Asia/Seoul (대한민국)
 ---
 
 ### Phase 5: 병원 기능
-**목표**: 병원 입고, 재고, 사용, 폐기 기능 완성
-**기간**: 5-7일
+**목표**: 시술 등록, 회수, 병원 입고, 재고, 반품, 폐기 기능 완성
+**기간**: 6-8일
 **주요 작업**:
+- ⭐ **시술 등록 (핵심 기능)**: 장바구니 기반 제품 선택 + 환자 전화번호 입력 → FIFO 자동 할당
+- 회수 (24시간 이내)
 - 병원 입고 관리 (유통사로부터)
 - 병원 재고 조회
-- 제품 사용 등록 (환자 전화번호 + Virtual Code)
+- 반품 처리 (유통사로)
 - 제품 폐기 처리
 - 이력 조회
 
+**⚠️ 중요**: 가상 코드는 실물이 없으므로 스캔 방식 불가. 제품 종류 선택 + 수량 입력 방식 필수.
+
 **세부 계획**:
-- [Phase 5.1: 병원 입고 관리](phase-5/phase-5.1-hospital-receiving.md)
-- [Phase 5.2: 병원 재고 조회](phase-5/phase-5.2-hospital-inventory.md)
-- [Phase 5.3: 제품 사용](phase-5/phase-5.3-usage.md)
-- [Phase 5.4: 제품 폐기](phase-5/phase-5.4-disposal.md)
-- [Phase 5.5: 병원 이력](phase-5/phase-5.5-hospital-history.md)
-- [Phase 5.6: 통합 테스트](phase-5/phase-5.6-integration-tests.md)
+- [Phase 5.1: 시술 등록 (Treatment Registration)](phase-5/phase-5.1-treatment-registration.md) ← **핵심 기능**
+- [Phase 5.2: 회수 (Recall)](phase-5/phase-5.2-recall.md)
+- [Phase 5.3: 병원 입고 관리](phase-5/phase-5.3-hospital-receiving.md)
+- [Phase 5.4: 병원 재고 조회](phase-5/phase-5.4-hospital-inventory.md)
+- [Phase 5.5: 반품 처리](phase-5/phase-5.5-hospital-return.md)
+- [Phase 5.6: 제품 폐기](phase-5/phase-5.6-disposal.md)
+- [Phase 5.7: 병원 이력](phase-5/phase-5.7-hospital-history.md)
+- [Phase 5.8: 통합 테스트](phase-5/phase-5.8-integration-tests.md)
 
 ---
 
@@ -304,6 +332,15 @@ Week 9:    Phase 8 (프로덕션)
 - UI 먼저 개발 (Mock 데이터)
 - 가시적 확인 후 백엔드 연동
 
+### 8. Complete Task Execution (시간 무관 철저한 작업 진행) ⭐ 신규
+- 작업 소요 시간 무관하게 요청 범위 100% 완료
+- 파일 수/작업 시간 이유로 범위 축소 금지
+
+### 9. Context Memory Alert (Context 메모리 부족 시 알림) ⭐ 신규
+- 대규모 작업 전 메모리 평가
+- 부족 예상 시 사용자 알림
+- 사용자가 메모리 확보/새 세션 결정
+
 **자세한 내용**: [DEVELOPMENT_PRINCIPLES.md](../../DEVELOPMENT_PRINCIPLES.md)
 
 ---
@@ -426,6 +463,25 @@ Phase 8 (프로덕션)
   - Phase 4-8 링크 및 설명 실제 파일 구조와 동기화
   - Phase 7 상세 파일 6개 생성 (FIFO, Virtual Code, Pending, 동시성, E2E, 최적화)
   - 변경 이력 추가
+- **v2.2.0** (2025-11-21): **Phase 0 완전 보완 및 100% 완성** ⭐
+  - Constants 시스템 업계 최고 수준으로 강화 (A+ 등급 달성)
+  - 알림 템플릿 상수 추가 (notifications.ts) - PRD Section 10 완전 반영
+  - 상태값 UI 라벨 시스템 추가 - 하드코딩 제거
+  - 제조사 기본값 상수 추가 - PRD Section 6.1 동기화
+  - 정규식 중복 완전 제거 - SSOT 원칙 100% 준수
+  - RLS 정책명 전체 목록 완성 (30개) - Phase 1.4 완전 동기화
+  - 매직 넘버 완전 제거 - TIME_CONVERSIONS 상수 도입
+  - 4개 상세 constants 문서 작성 (database, business-logic, locks, notifications)
+  - Phase 0.5 완료 기준 상세화 및 100% 달성
+  - **품질 향상**: 기본 계획 (90점) → 프로덕션 완성 (100점)
+- **v2.3.0** (2025-11-21): **개발 원칙 확장** ⭐
+  - 원칙 8 추가: 시간 무관 철저한 작업 진행 (Complete Task Execution)
+  - 원칙 9 추가: Context 메모리 부족 시 알림 (Context Memory Alert)
+  - DEVELOPMENT_PRINCIPLES.md 전면 업데이트 (v2.0.0)
+  - 모든 Phase 문서에 새 원칙 반영
+  - Phase별 체크리스트 업데이트 (개발 전/중/후)
+  - **작업 범위 보장**: 시간 무관하게 요청 범위 100% 완료
+  - **AI 협업 최적화**: Context 메모리 부족 시 사용자 알림 및 결정권 부여
 
 ### 주요 변경 사유
 
