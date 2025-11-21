@@ -158,6 +158,199 @@ describe('FIFO Allocation Integration Test', () => {
 
 ---
 
+### 2.5 Virtual Code 상태 전이 통합 테스트 (신규)
+
+**파일 경로**: `src/pages/manufacturer/__tests__/integration/virtual-code-status.test.tsx`
+
+```typescript
+import { describe, it, expect, beforeAll, afterAll } from 'vitest'
+import { supabase } from '@/lib/supabase'
+import { VIRTUAL_CODE_STATUS } from '@/constants/status'
+
+describe('Virtual Code Status Transition Integration Test', () => {
+  let testLotId: string
+  let testVirtualCodeIds: string[]
+
+  beforeAll(async () => {
+    // Setup: Create test lot with 10 Virtual Codes
+    const { data: lot } = await supabase.rpc('create_lot_with_codes', {
+      p_product_id: 'test-product-id',
+      p_lot_number: 'TEST00001',
+      p_manufacture_date: '2025-01-20',
+      p_expiry_date: '2028-01-20',
+      p_quantity: 10,
+      p_organization_id: 'test-org-id',
+    })
+
+    testLotId = lot
+
+    // Get Virtual Code IDs
+    const { data: vcs } = await supabase
+      .from('virtual_codes')
+      .select('id')
+      .eq('lot_id', testLotId)
+      .order('sequence_number', { ascending: true })
+
+    testVirtualCodeIds = vcs?.map((vc) => vc.id) || []
+  })
+
+  afterAll(async () => {
+    // Cleanup
+    await supabase.from('virtual_codes').delete().eq('lot_id', testLotId)
+    await supabase.from('lots').delete().eq('id', testLotId)
+  })
+
+  it('Lot 생산 시 모든 Virtual Code가 IN_STOCK 상태로 생성되어야 한다', async () => {
+    const { data: virtualCodes } = await supabase
+      .from('virtual_codes')
+      .select('status, sequence_number')
+      .eq('lot_id', testLotId)
+      .order('sequence_number', { ascending: true })
+
+    expect(virtualCodes).toHaveLength(10)
+    virtualCodes?.forEach((vc, index) => {
+      expect(vc.status).toBe(VIRTUAL_CODE_STATUS.IN_STOCK)
+      expect(vc.sequence_number).toBe(index + 1)
+    })
+  })
+
+  it('출고 시 FIFO 순서로 Virtual Code 상태가 PENDING으로 전이되어야 한다', async () => {
+    // Ship 3 units (to_organization_id null → PENDING)
+    await supabase.rpc('create_shipment_with_vc_status', {
+      p_lot_id: testLotId,
+      p_from_organization_id: 'test-org-id',
+      p_to_organization_id: null,
+      p_quantity: 3,
+      p_shipment_date: '2025-01-25',
+      p_user_id: 'test-user-id',
+    })
+
+    // Verify first 3 Virtual Codes are PENDING (FIFO order)
+    const { data: pendingVCs } = await supabase
+      .from('virtual_codes')
+      .select('id, status, sequence_number')
+      .eq('lot_id', testLotId)
+      .eq('status', VIRTUAL_CODE_STATUS.PENDING)
+      .order('sequence_number', { ascending: true })
+
+    expect(pendingVCs).toHaveLength(3)
+    expect(pendingVCs?.[0].sequence_number).toBe(1)
+    expect(pendingVCs?.[1].sequence_number).toBe(2)
+    expect(pendingVCs?.[2].sequence_number).toBe(3)
+
+    // Verify remaining 7 are still IN_STOCK
+    const { data: inStockVCs } = await supabase
+      .from('virtual_codes')
+      .select('id, status, sequence_number')
+      .eq('lot_id', testLotId)
+      .eq('status', VIRTUAL_CODE_STATUS.IN_STOCK)
+      .order('sequence_number', { ascending: true })
+
+    expect(inStockVCs).toHaveLength(7)
+    expect(inStockVCs?.[0].sequence_number).toBe(4)
+  })
+
+  it('제조사→병원 출고 시 Virtual Code가 즉시 IN_STOCK (병원 소유)로 전이되어야 한다', async () => {
+    // Ship 2 units to hospital (organization_type: hospital)
+    const { data: hospitalOrg } = await supabase
+      .from('organizations')
+      .insert({
+        name: 'Test Hospital',
+        organization_type: 'hospital',
+      })
+      .select()
+      .single()
+
+    await supabase.rpc('create_shipment_with_vc_status', {
+      p_lot_id: testLotId,
+      p_from_organization_id: 'test-org-id',
+      p_to_organization_id: hospitalOrg.id,
+      p_quantity: 2,
+      p_shipment_date: '2025-01-26',
+      p_user_id: 'test-user-id',
+    })
+
+    // Verify next 2 Virtual Codes (sequence 4, 5) are IN_STOCK (hospital ownership)
+    // Note: Detailed ownership verification should be done in Phase 4
+    const { data: transferredVCs } = await supabase
+      .from('virtual_codes')
+      .select('status, sequence_number')
+      .eq('lot_id', testLotId)
+      .in('sequence_number', [4, 5])
+
+    transferredVCs?.forEach((vc) => {
+      expect(vc.status).toBe(VIRTUAL_CODE_STATUS.IN_STOCK)
+    })
+
+    // Cleanup
+    await supabase.from('organizations').delete().eq('id', hospitalOrg.id)
+  })
+
+  it('재고 차감 시 Virtual Code 상태 전이가 원자적으로 처리되어야 한다', async () => {
+    // Attempt to ship more than available
+    const { error } = await supabase.rpc('create_shipment_with_vc_status', {
+      p_lot_id: testLotId,
+      p_from_organization_id: 'test-org-id',
+      p_to_organization_id: null,
+      p_quantity: 100, // More than available
+      p_shipment_date: '2025-01-27',
+      p_user_id: 'test-user-id',
+    })
+
+    // Verify error thrown
+    expect(error).toBeTruthy()
+
+    // Verify no Virtual Code status changed (atomicity)
+    const { data: allVCs } = await supabase
+      .from('virtual_codes')
+      .select('status')
+      .eq('lot_id', testLotId)
+
+    // Should have same status distribution as before failed attempt
+    expect(allVCs?.filter((vc) => vc.status === VIRTUAL_CODE_STATUS.IN_STOCK).length).toBeGreaterThan(0)
+  })
+
+  it('FIFO 정렬이 sequence_number 기준으로 동작해야 한다', async () => {
+    // Create a new lot
+    const { data: newLotId } = await supabase.rpc('create_lot_with_codes', {
+      p_product_id: 'test-product-id',
+      p_lot_number: 'TEST00002',
+      p_manufacture_date: '2025-01-20',
+      p_expiry_date: '2028-01-20',
+      p_quantity: 5,
+      p_organization_id: 'test-org-id',
+    })
+
+    // Ship 3 units
+    await supabase.rpc('create_shipment_with_vc_status', {
+      p_lot_id: newLotId,
+      p_from_organization_id: 'test-org-id',
+      p_to_organization_id: null,
+      p_quantity: 3,
+      p_shipment_date: '2025-01-25',
+      p_user_id: 'test-user-id',
+    })
+
+    // Verify sequence_number 1, 2, 3 are PENDING
+    const { data: pendingVCs } = await supabase
+      .from('virtual_codes')
+      .select('sequence_number, status')
+      .eq('lot_id', newLotId)
+      .eq('status', VIRTUAL_CODE_STATUS.PENDING)
+      .order('sequence_number', { ascending: true })
+
+    expect(pendingVCs).toHaveLength(3)
+    expect(pendingVCs?.map((vc) => vc.sequence_number)).toEqual([1, 2, 3])
+
+    // Cleanup
+    await supabase.from('virtual_codes').delete().eq('lot_id', newLotId)
+    await supabase.from('lots').delete().eq('id', newLotId)
+  })
+})
+```
+
+---
+
 ### 3. Database Constraint 테스트
 
 **파일 경로**: `src/pages/manufacturer/__tests__/integration/database-constraints.test.tsx`

@@ -8,9 +8,29 @@
 
 1. **Lot 생산 등록 폼**: 제품 선택, 생산 수량, 생산일 입력
 2. **자동 Lot 번호 생성**: 제조사 설정 기반 Lot 번호 자동 생성
-3. **Virtual Code 생성**: 고유한 가상 코드 생성
+3. **Virtual Code 자동 생성**: PostgreSQL 함수에서 quantity개의 Virtual Code 자동 생성 (1대다 관계)
 4. **사용기한 자동 계산**: 생산일 + 사용기한 개월 수
-5. **생산 등록 완료**: Lot 및 Inventory 테이블 데이터 생성
+5. **생산 등록 완료**: Lot, Virtual Codes, Inventory 레코드 생성
+
+### Virtual Code 아키텍처 (중요)
+
+**1 Lot → N Virtual Codes (1대다 관계)**
+
+- **Lot 테이블**: Lot 번호, 생산일, 사용기한, 총 수량을 저장
+- **Virtual Codes 테이블**: 각 Virtual Code를 개별 레코드로 저장
+  - `lot_id`: 상위 Lot 참조 (Foreign Key)
+  - `sequence_number`: Lot 내에서의 순번 (1, 2, 3, ..., quantity)
+  - `virtual_code`: 고유한 12자리 코드
+  - `status`: IN_STOCK, PENDING, USED, DISPOSED
+
+**생성 프로세스**:
+1. 사용자가 Lot 생산 등록 (제품, 수량 100개 입력)
+2. PostgreSQL 함수 `create_lot_with_codes` 호출
+3. 함수 내에서:
+   - 1개의 Lot 레코드 생성
+   - 100개의 Virtual Code 레코드 자동 생성 (sequence_number: 1~100)
+   - 1개의 Inventory 레코드 생성 (current_quantity: 100)
+4. 트랜잭션으로 원자성 보장
 
 ### 기술 스택
 
@@ -32,6 +52,86 @@
 - [ ] **Frontend-First Development**: API 호출 전 타입 및 인터페이스 정의
 - [ ] 원칙 8: 작업 범위 100% 완료 (시간 무관)
 - [ ] 원칙 9: Context 메모리 부족 시 사용자 알림
+
+---
+
+## 🔧 Required Constants
+
+이 Phase에서 사용하는 모든 constants를 아래에 정의합니다.
+
+### src/constants/validation.ts
+```typescript
+export const VALIDATION_RULES = {
+  LOT_PRODUCTION: {
+    QUANTITY_MIN: 1,
+    QUANTITY_MAX: 1000000,
+  },
+} as const
+```
+
+### src/constants/messages.ts
+```typescript
+export const SUCCESS_MESSAGES = {
+  LOT_PRODUCTION: {
+    CREATED: 'Lot 생산이 등록되었습니다.',
+  },
+} as const
+
+export const ERROR_MESSAGES = {
+  LOT_PRODUCTION: {
+    CREATE_FAILED: 'Lot 생산 등록에 실패했습니다.',
+  },
+  MANUFACTURER_SETTINGS: {
+    NOT_CONFIGURED: '제조사 설정이 완료되지 않았습니다.',
+  },
+} as const
+```
+
+### src/constants/database.ts
+```typescript
+export const DATABASE_CONSTANTS = {
+  TABLES: {
+    LOTS: 'lots',
+    VIRTUAL_CODES: 'virtual_codes',
+    INVENTORY: 'inventory',
+    PRODUCTS: 'products',
+    MANUFACTURER_SETTINGS: 'manufacturer_settings',
+  },
+} as const
+
+export const DATABASE_FUNCTIONS = {
+  CREATE_LOT_WITH_CODES: 'create_lot_with_codes',
+  ACQUIRE_ORG_PRODUCT_LOCK: 'acquire_org_product_lock',
+  RELEASE_ORG_PRODUCT_LOCK: 'release_org_product_lock',
+} as const
+```
+
+### src/constants/locks.ts
+```typescript
+export const LOCK_ERROR_MESSAGES = {
+  TIMEOUT: '다른 사용자가 처리 중입니다. 잠시 후 다시 시도해주세요.',
+  ACQUISITION_FAILED: 'Lock 획득에 실패했습니다.',
+} as const
+```
+
+### src/constants/datetime.ts
+```typescript
+export const TIMEZONE = 'Asia/Seoul' as const
+
+export const DATE_FORMAT = {
+  DISPLAY: 'yyyy년 MM월 dd일',
+  DATABASE: 'yyyy-MM-dd',
+  DATETIME: 'yyyy-MM-dd HH:mm:ss',
+} as const
+```
+
+### src/constants/status.ts
+```typescript
+export const PRODUCT_STATUS = {
+  ACTIVE: 'active',
+  INACTIVE: 'inactive',
+} as const
+```
 
 ---
 
@@ -95,7 +195,7 @@ const lotProductionSchema = z.object({
       VALIDATION_RULES.LOT_PRODUCTION.QUANTITY_MAX,
       `생산 수량은 최대 ${VALIDATION_RULES.LOT_PRODUCTION.QUANTITY_MAX}개까지 입력 가능합니다.`
     ),
-  production_date: z.date({
+  manufacture_date: z.date({
     required_error: '생산일을 선택해주세요.',
   }),
 })
@@ -162,7 +262,7 @@ export function LotProductionPage() {
     defaultValues: {
       product_id: '',
       quantity: VALIDATION_RULES.LOT_PRODUCTION.QUANTITY_MIN,
-      production_date: new Date(),
+      manufacture_date: new Date(),
     },
   })
 
@@ -242,7 +342,7 @@ export function LotProductionPage() {
         const lotNumber = await generateLotNumber(data.product_id, settings)
 
         // Calculate expiry date
-        const expiryDate = addMonths(data.production_date, settings.expiry_months)
+        const expiryDate = addMonths(data.manufacture_date, settings.expiry_months)
 
         // ⭐ 트랜잭션 함수 호출: Lot 생성 + quantity개의 Virtual Code 자동 생성
         const { data: lotId, error: lotError } = await supabase.rpc(
@@ -250,7 +350,7 @@ export function LotProductionPage() {
           {
             p_product_id: data.product_id,
             p_lot_number: lotNumber,
-            p_manufacture_date: format(data.production_date, 'yyyy-MM-dd'),
+            p_manufacture_date: format(data.manufacture_date, 'yyyy-MM-dd'),
             p_expiry_date: format(expiryDate, 'yyyy-MM-dd'),
             p_quantity: data.quantity,
             p_organization_id: userData.organization_id,
@@ -417,10 +517,10 @@ export function LotProductionPage() {
                 )}
               />
 
-              {/* Production Date */}
+              {/* Manufacture Date */}
               <FormField
                 control={form.control}
-                name="production_date"
+                name="manufacture_date"
                 render={({ field }) => (
                   <FormItem className="flex flex-col">
                     <FormLabel>생산일 *</FormLabel>
@@ -484,17 +584,17 @@ export function LotProductionPage() {
 
                       <div className="text-blue-700">생산일:</div>
                       <div className="font-semibold text-blue-900">
-                        {form.watch('production_date')
-                          ? format(form.watch('production_date'), 'yyyy-MM-dd')
+                        {form.watch('manufacture_date')
+                          ? format(form.watch('manufacture_date'), 'yyyy-MM-dd')
                           : '-'}
                       </div>
 
                       <div className="text-blue-700">사용기한:</div>
                       <div className="font-semibold text-blue-900">
-                        {form.watch('production_date')
+                        {form.watch('manufacture_date')
                           ? format(
                               addMonths(
-                                form.watch('production_date'),
+                                form.watch('manufacture_date'),
                                 settings.expiry_months
                               ),
                               'yyyy-MM-dd'
@@ -561,13 +661,16 @@ export interface Lot {
   id: string
   product_id: string
   lot_number: string
-  virtual_code: string
-  production_date: string
+  manufacture_date: string // 생산일 (PRD 용어 통일)
   expiry_date: string
   quantity: number
   created_at: string
   updated_at: string
 }
+
+// ⭐ Virtual Code는 별도 테이블로 관리 (1대다 관계)
+// Virtual Code 타입은 src/types/database.ts의 VirtualCode 인터페이스 참조
+// 1 Lot → N Virtual Codes (quantity개 생성, sequence_number: 1, 2, 3, ..., N)
 
 export interface Inventory {
   id: string
@@ -1000,8 +1103,7 @@ describe('LotProductionPage', () => {
         id: 'lot-1',
         product_id: 'product-1',
         lot_number: 'ABC12300001',
-        virtual_code: '123456789012',
-        production_date: '2025-01-20',
+        manufacture_date: '2025-01-20',
         expiry_date: '2028-01-20',
         quantity: 100,
       },
@@ -1206,9 +1308,9 @@ ALTER COLUMN virtual_code SET DEFAULT generate_virtual_code();
 import { addMonths, format } from 'date-fns'
 import { toZonedTime } from 'date-fns-tz'
 
-const calculateExpiryDate = (productionDate: Date, expiryMonths: number): string => {
+const calculateExpiryDate = (manufactureDate: Date, expiryMonths: number): string => {
   // Asia/Seoul timezone으로 변환
-  const zonedDate = toZonedTime(productionDate, 'Asia/Seoul')
+  const zonedDate = toZonedTime(manufactureDate, 'Asia/Seoul')
 
   // 개월 수 추가
   const expiryDate = addMonths(zonedDate, expiryMonths)
@@ -1221,10 +1323,10 @@ const calculateExpiryDate = (productionDate: Date, expiryMonths: number): string
 2. 테스트 추가:
 ```typescript
 it('사용기한 계산이 정확해야 한다', () => {
-  const productionDate = new Date('2025-01-20')
+  const manufactureDate = new Date('2025-01-20')
   const expiryMonths = 36
 
-  const expiryDate = calculateExpiryDate(productionDate, expiryMonths)
+  const expiryDate = calculateExpiryDate(manufactureDate, expiryMonths)
 
   expect(expiryDate).toBe('2028-01-20')
 })
@@ -1288,8 +1390,7 @@ if (!modelMatch) {
 CREATE OR REPLACE FUNCTION create_lot_with_inventory(
   p_product_id UUID,
   p_lot_number TEXT,
-  p_virtual_code TEXT,
-  p_production_date DATE,
+  p_manufacture_date DATE,
   p_expiry_date DATE,
   p_quantity INTEGER,
   p_organization_id UUID,
@@ -1299,9 +1400,9 @@ RETURNS UUID AS $$
 DECLARE
   v_lot_id UUID;
 BEGIN
-  -- Insert lot
-  INSERT INTO lots (product_id, lot_number, virtual_code, production_date, expiry_date, quantity)
-  VALUES (p_product_id, p_lot_number, p_virtual_code, p_production_date, p_expiry_date, p_quantity)
+  -- Insert lot (Virtual Code는 별도 생성되지 않음)
+  INSERT INTO lots (product_id, lot_number, manufacture_date, expiry_date, quantity)
+  VALUES (p_product_id, p_lot_number, p_manufacture_date, p_expiry_date, p_quantity)
   RETURNING id INTO v_lot_id;
 
   -- Insert inventory
@@ -1318,8 +1419,7 @@ $$ LANGUAGE plpgsql;
 const { data, error } = await supabase.rpc('create_lot_with_inventory', {
   p_product_id: data.product_id,
   p_lot_number: lotNumber,
-  p_virtual_code: virtualCode,
-  p_production_date: format(data.production_date, 'yyyy-MM-dd'),
+  p_manufacture_date: format(data.manufacture_date, 'yyyy-MM-dd'),
   p_expiry_date: format(expiryDate, 'yyyy-MM-dd'),
   p_quantity: data.quantity,
   p_organization_id: userData!.organization_id,

@@ -27,6 +27,25 @@
 
 ---
 
+## 🔧 Required Constants
+
+이 Phase에서 사용하는 모든 constants를 아래에 정의합니다.
+
+### src/constants/inventory.ts (신규)
+```typescript
+export const EXPIRY_WARNING_DAYS = 30 as const
+```
+
+### src/constants/messages.ts
+```typescript
+export const INVENTORY_MESSAGES = {
+  NO_INVENTORY: '재고가 없습니다',
+  LOADING: '재고를 불러오는 중...',
+} as const
+```
+
+---
+
 ## 📦 Work Content
 
 ### InventoryPage 컴포넌트

@@ -35,6 +35,51 @@
 
 ---
 
+## 🔧 Required Constants
+
+이 Phase에서 사용하는 모든 constants를 아래에 정의합니다.
+
+### src/constants/status.ts
+```typescript
+export const PRODUCT_STATUS = {
+  ACTIVE: 'active',
+  INACTIVE: 'inactive',
+} as const
+
+export const PRODUCT_STATUS_LABELS = {
+  active: '활성',
+  inactive: '비활성',
+} as const
+
+export const PRODUCT_STATUS_COLORS = {
+  active: 'default',
+  inactive: 'secondary',
+} as const
+```
+
+### src/constants/messages.ts
+```typescript
+export const SUCCESS_MESSAGES = {
+  PRODUCT: {
+    STATUS_UPDATED: '제품 상태가 업데이트되었습니다.',
+  },
+} as const
+
+export const ERROR_MESSAGES = {
+  PRODUCT: {
+    STATUS_UPDATE_FAILED: '제품 상태 업데이트에 실패했습니다.',
+  },
+} as const
+```
+
+### src/constants/pagination.ts
+```typescript
+export const PAGINATION_SIZES = [10, 20, 50, 100] as const
+export const DEFAULT_PAGE_SIZE = 20
+```
+
+---
+
 ## 📦 Work Content
 
 ### 1. ProductListPage 컴포넌트

@@ -45,6 +45,46 @@
 
 ---
 
+## 🔧 Required Constants
+
+이 Phase에서 사용하는 모든 constants를 아래에 정의합니다.
+
+### src/constants/validation.ts
+```typescript
+export const VALIDATION_RULES = {
+  MANUFACTURER_SETTINGS: {
+    LOT_PREFIX_MIN_LENGTH: 1,
+    LOT_PREFIX_MAX_LENGTH: 5,
+    MODEL_DIGITS_MIN: 1,
+    MODEL_DIGITS_MAX: 10,
+    SEQUENCE_DIGITS_MIN: 1,
+    SEQUENCE_DIGITS_MAX: 10,
+    EXPIRY_MONTHS_MIN: 1,
+    EXPIRY_MONTHS_MAX: 120,
+  },
+} as const
+```
+
+### src/constants/messages.ts
+```typescript
+export const SUCCESS_MESSAGES = {
+  MANUFACTURER_SETTINGS: {
+    CREATED: '제조사 설정이 등록되었습니다.',
+    UPDATED: '제조사 설정이 수정되었습니다.',
+  },
+} as const
+
+export const ERROR_MESSAGES = {
+  MANUFACTURER_SETTINGS: {
+    CREATE_FAILED: '제조사 설정 등록에 실패했습니다.',
+    UPDATE_FAILED: '제조사 설정 수정에 실패했습니다.',
+    NOT_CONFIGURED: '제조사 설정이 완료되지 않았습니다.',
+  },
+} as const
+```
+
+---
+
 ## 📦 Work Content
 
 ### 1. ManufacturerSettingsPage 컴포넌트

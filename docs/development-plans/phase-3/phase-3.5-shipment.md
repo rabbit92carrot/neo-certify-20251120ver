@@ -35,6 +35,80 @@
 
 ---
 
+## 🔧 Required Constants
+
+이 Phase에서 사용하는 모든 constants를 아래에 정의합니다.
+
+### src/constants/messages.ts
+```typescript
+export const SUCCESS_MESSAGES = {
+  SHIPMENT: {
+    CREATED: '출고가 완료되었습니다.',
+    CART_ADDED: '장바구니에 추가되었습니다.',
+    CART_REMOVED: '장바구니에서 제거되었습니다.',
+    QUANTITY_ADDED: '수량이 추가되었습니다.',
+  },
+} as const
+
+export const ERROR_MESSAGES = {
+  SHIPMENT: {
+    CREATE_FAILED: '출고 처리에 실패했습니다.',
+    CART_EMPTY: '장바구니가 비어 있습니다.',
+    INSUFFICIENT_INVENTORY: '재고가 부족합니다.',
+    NO_INVENTORY: '재고가 없습니다.',
+    QUANTITY_MISMATCH: '선택된 수량이 요청 수량과 일치하지 않습니다.',
+    INVALID_QUANTITY: '수량은 1개 이상이어야 합니다.',
+    PRODUCT_NOT_SELECTED: '제품을 선택해주세요.',
+  },
+} as const
+```
+
+### src/constants/allocation.ts (신규)
+```typescript
+export const ALLOCATION_TYPE = {
+  FIFO: 'fifo',
+  MANUAL: 'manual',
+} as const
+
+export const ALLOCATION_TYPE_LABELS = {
+  FIFO: '자동 할당 (FIFO)',
+  MANUAL: '특정 Lot 선택 (수동)',
+} as const
+
+export const ALLOCATION_TYPE_DESCRIPTIONS = {
+  FIFO: 'FIFO: 사용기한이 가까운 Lot부터 자동으로 할당됩니다',
+  MANUAL: '특정 Lot: 제조사가 직접 원하는 Lot을 선택합니다 (PRD Section 5.2)',
+} as const
+```
+
+### src/constants/status.ts
+```typescript
+export const VIRTUAL_CODE_STATUS = {
+  IN_STOCK: 'IN_STOCK',
+  PENDING: 'PENDING',
+  USED: 'USED',
+  DISPOSED: 'DISPOSED',
+} as const
+
+export const VIRTUAL_CODE_STATUS_LABELS = {
+  IN_STOCK: '재고',
+  PENDING: '출고 대기',
+  USED: '사용됨',
+  DISPOSED: '폐기됨',
+} as const
+```
+
+### src/constants/database.ts
+```typescript
+export const DATABASE_FUNCTIONS = {
+  DECREMENT_INVENTORY: 'decrement_inventory',
+  UPDATE_VIRTUAL_CODE_STATUS: 'update_virtual_code_status',
+  CREATE_SHIPMENT_WITH_VC_STATUS: 'create_shipment_with_vc_status',
+} as const
+```
+
+---
+
 ## 📦 Work Content
 
 ### 1. ShipmentPage 컴포넌트
@@ -78,7 +152,9 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { SUCCESS_MESSAGES, ERROR_MESSAGES } from '@/constants/messages'
 import { ROUTES } from '@/constants/routes'
-import { PRODUCT_STATUS } from '@/constants/status'
+import { PRODUCT_STATUS, VIRTUAL_CODE_STATUS } from '@/constants/status'
+import { ALLOCATION_TYPE, ALLOCATION_TYPE_LABELS, ALLOCATION_TYPE_DESCRIPTIONS } from '@/constants/allocation'
+import { DATABASE_FUNCTIONS } from '@/constants/database'
 import type { Product, Lot, Inventory, Organization } from '@/types/database'
 
 interface CartItem {
@@ -179,7 +255,7 @@ export function ShipmentPage() {
     )
 
     if (!productInventory || productInventory.length === 0) {
-      throw new Error('재고가 없습니다.')
+      throw new Error(ERROR_MESSAGES.SHIPMENT.NO_INVENTORY)
     }
 
     // 2. FIFO 정렬 (4단계: manufacture_date → expiry_date → sequence_number → created_at)
@@ -208,7 +284,7 @@ export function ShipmentPage() {
 
     if (totalAvailable < requestedQuantity) {
       throw new Error(
-        `재고가 부족합니다. (요청: ${requestedQuantity}, 가용: ${totalAvailable})`
+        `${ERROR_MESSAGES.SHIPMENT.INSUFFICIENT_INVENTORY} (요청: ${requestedQuantity}, 가용: ${totalAvailable})`
       )
     }
 
@@ -236,7 +312,7 @@ export function ShipmentPage() {
       const product = products?.find((p) => p.id === selectedProductId)
       if (!product) {
         toast({
-          title: '제품을 선택해주세요.',
+          title: ERROR_MESSAGES.SHIPMENT.PRODUCT_NOT_SELECTED,
           variant: 'destructive',
         })
         return
@@ -244,7 +320,7 @@ export function ShipmentPage() {
 
       if (quantity <= 0) {
         toast({
-          title: '수량은 1개 이상이어야 합니다.',
+          title: ERROR_MESSAGES.SHIPMENT.INVALID_QUANTITY,
           variant: 'destructive',
         })
         return
@@ -260,7 +336,7 @@ export function ShipmentPage() {
         setCart(updatedCart)
 
         toast({
-          title: '수량이 추가되었습니다.',
+          title: SUCCESS_MESSAGES.SHIPMENT.QUANTITY_ADDED,
           description: `총 ${updatedCart[existingIndex].quantity}개`,
         })
         return
@@ -275,7 +351,7 @@ export function ShipmentPage() {
         const totalSelected = manualLotSelections.reduce((sum, s) => sum + s.quantity, 0)
         if (totalSelected !== quantity) {
           toast({
-            title: '수량 불일치',
+            title: ERROR_MESSAGES.SHIPMENT.QUANTITY_MISMATCH,
             description: `선택된 수량(${totalSelected})이 요청 수량(${quantity})과 일치하지 않습니다.`,
             variant: 'destructive',
           })
@@ -307,7 +383,7 @@ export function ShipmentPage() {
       setManualLotSelections([])
 
       toast({
-        title: '장바구니에 추가되었습니다.',
+        title: SUCCESS_MESSAGES.SHIPMENT.CART_ADDED,
       })
 
       // Reset form
@@ -328,7 +404,7 @@ export function ShipmentPage() {
   const handleRemoveFromCart = (productId: string) => {
     setCart(cart.filter((item) => item.product.id !== productId))
     toast({
-      title: '장바구니에서 제거되었습니다.',
+      title: SUCCESS_MESSAGES.SHIPMENT.CART_REMOVED,
     })
   }
 
@@ -336,36 +412,42 @@ export function ShipmentPage() {
   const createShipmentMutation = useMutation({
     mutationFn: async () => {
       if (cart.length === 0) {
-        throw new Error('장바구니가 비어 있습니다.')
+        throw new Error(ERROR_MESSAGES.SHIPMENT.CART_EMPTY)
       }
 
       // Create shipment records and update inventory
+      // ⭐ Virtual Code 상태 전이 로직 추가
       for (const item of cart) {
         if (item.allocationType === 'fifo' && item.selectedLots) {
           for (const { lot, quantity: shipQty } of item.selectedLots) {
-            // Create shipment record
-            const { error: shipmentError } = await supabase.from('shipments').insert({
-              lot_id: lot.id,
-              from_organization_id: userData!.organization_id,
-              to_organization_id: null, // Will be set in Phase 4 (distributor)
-              quantity: shipQty,
-              shipment_date: format(new Date(), 'yyyy-MM-dd'),
-            })
-
-            if (shipmentError) throw shipmentError
-
-            // Update inventory
-            const { error: inventoryError } = await supabase.rpc(
-              'decrement_inventory',
+            // ⭐ Step 1: Create shipment record + Update Virtual Code status
+            // PRD Section 5.3: 제조사→유통사/병원 출고 시 Virtual Code 상태 처리
+            // - 제조사→유통사: PENDING (상대방 수락 필요)
+            // - 제조사→병원: 즉시 이전 (PENDING 없음)
+            //
+            // 현재 Phase 3에서는 to_organization_id가 null이므로
+            // Phase 4에서 유통사/병원 정보가 추가되면 조건부로 상태 전이 처리됩니다.
+            //
+            // 트랜잭션 함수 호출:
+            // 1. Shipment 레코드 생성
+            // 2. Virtual Code 상태 업데이트 (IN_STOCK → PENDING or 직접 이전)
+            // 3. Inventory 차감
+            const { error: shipmentError } = await supabase.rpc(
+              DATABASE_FUNCTIONS.CREATE_SHIPMENT_WITH_VC_STATUS,
               {
                 p_lot_id: lot.id,
-                p_organization_id: userData!.organization_id,
+                p_from_organization_id: userData!.organization_id,
+                p_to_organization_id: null, // Phase 4에서 설정
                 p_quantity: shipQty,
+                p_shipment_date: format(new Date(), 'yyyy-MM-dd'),
                 p_user_id: user!.id,
               }
             )
 
-            if (inventoryError) throw inventoryError
+            if (shipmentError) throw shipmentError
+
+            // Note: Inventory 차감 및 Virtual Code 상태 전이는
+            // create_shipment_with_vc_status 함수 내에서 처리됩니다.
           }
         }
       }
@@ -456,9 +538,9 @@ export function ShipmentPage() {
                   </SelectContent>
                 </Select>
                 <p className="mt-1.5 text-xs text-gray-600">
-                  {allocationType === 'fifo'
-                    ? 'FIFO: 사용기한이 가까운 Lot부터 자동으로 할당됩니다'
-                    : '특정 Lot: 제조사가 직접 원하는 Lot을 선택합니다 (PRD Section 5.2)'}
+                  {allocationType === ALLOCATION_TYPE.FIFO
+                    ? ALLOCATION_TYPE_DESCRIPTIONS.FIFO
+                    : ALLOCATION_TYPE_DESCRIPTIONS.MANUAL}
                 </p>
               </div>
 
@@ -637,6 +719,126 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 ```
+
+---
+
+### 3. Database Function: create_shipment_with_vc_status (신규)
+
+**파일 경로**: `supabase/migrations/YYYYMMDDHHMMSS_create_shipment_with_vc_status.sql`
+
+이 함수는 출고 처리 시 Virtual Code 상태를 자동으로 업데이트합니다.
+
+```sql
+-- Function to create shipment and update Virtual Code status
+-- PRD Section 5.3: Virtual Code 상태 전이 규칙 적용
+CREATE OR REPLACE FUNCTION create_shipment_with_vc_status(
+  p_lot_id UUID,
+  p_from_organization_id UUID,
+  p_to_organization_id UUID,
+  p_quantity INTEGER,
+  p_shipment_date DATE,
+  p_user_id UUID
+)
+RETURNS UUID AS $$
+DECLARE
+  v_shipment_id UUID;
+  v_to_org_type TEXT;
+  v_target_status TEXT;
+BEGIN
+  -- Step 1: Determine target Virtual Code status based on recipient organization type
+  -- PRD Section 5.3: 출고 대상에 따라 Virtual Code 상태 결정
+  IF p_to_organization_id IS NULL THEN
+    -- Phase 3: to_organization_id가 null (미정의)
+    -- 기본값: PENDING
+    v_target_status := 'PENDING';
+  ELSE
+    -- Phase 4+: to_organization_id가 정의된 경우
+    -- 상대방 조직 타입 조회
+    SELECT organization_type INTO v_to_org_type
+    FROM organizations
+    WHERE id = p_to_organization_id;
+
+    IF v_to_org_type = 'distributor' THEN
+      -- 제조사 → 유통사: PENDING (수락 대기)
+      v_target_status := 'PENDING';
+    ELSIF v_to_org_type = 'hospital' THEN
+      -- 제조사 → 병원: 즉시 이전 (PENDING 없음)
+      -- Phase 4에서 구현: 병원의 inventory에 즉시 추가
+      v_target_status := 'IN_STOCK';
+    ELSE
+      RAISE EXCEPTION 'Invalid organization type: %', v_to_org_type;
+    END IF;
+  END IF;
+
+  -- Step 2: Create shipment record
+  INSERT INTO shipments (
+    lot_id,
+    from_organization_id,
+    to_organization_id,
+    quantity,
+    shipment_date,
+    created_at,
+    updated_at
+  )
+  VALUES (
+    p_lot_id,
+    p_from_organization_id,
+    p_to_organization_id,
+    p_quantity,
+    p_shipment_date,
+    NOW(),
+    NOW()
+  )
+  RETURNING id INTO v_shipment_id;
+
+  -- Step 3: Update Virtual Code status (IN_STOCK → PENDING or IN_STOCK)
+  -- FIFO 순서로 p_quantity개의 Virtual Code 상태 업데이트
+  WITH selected_vcs AS (
+    SELECT id
+    FROM virtual_codes
+    WHERE lot_id = p_lot_id
+      AND status = 'IN_STOCK'
+    ORDER BY sequence_number ASC
+    LIMIT p_quantity
+  )
+  UPDATE virtual_codes
+  SET
+    status = v_target_status,
+    updated_at = NOW()
+  WHERE id IN (SELECT id FROM selected_vcs);
+
+  -- Step 4: Decrement inventory
+  UPDATE inventory
+  SET
+    current_quantity = current_quantity - p_quantity,
+    last_updated_by = p_user_id,
+    updated_at = NOW()
+  WHERE
+    lot_id = p_lot_id
+    AND organization_id = p_from_organization_id;
+
+  -- Validation: Check if inventory went negative
+  IF (SELECT current_quantity FROM inventory WHERE lot_id = p_lot_id AND organization_id = p_from_organization_id) < 0 THEN
+    RAISE EXCEPTION 'Insufficient inventory';
+  END IF;
+
+  RETURN v_shipment_id;
+END;
+$$ LANGUAGE plpgsql;
+```
+
+**Virtual Code 상태 전이 규칙 (PRD Section 5.3 & 6.1)**:
+
+| 출고 경로 | Virtual Code 상태 전이 | PENDING 여부 |
+|---------|----------------------|------------|
+| 제조사 → 유통사 | IN_STOCK → PENDING | O (수락 필요) |
+| 제조사 → 병원 | IN_STOCK → IN_STOCK (병원으로 즉시 이전) | X |
+| 유통사 → 유통사 | IN_STOCK → PENDING | O (수락 필요) |
+| 유통사 → 병원 | IN_STOCK → IN_STOCK (병원으로 즉시 이전) | X |
+
+**Phase 3 현재 상태**:
+- `to_organization_id`가 null이므로 기본적으로 PENDING 상태로 전이
+- Phase 4 구현 시 상대방 조직 타입에 따라 조건부 처리
 
 ---
 

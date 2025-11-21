@@ -35,6 +35,54 @@
 
 ---
 
+## 🔧 Required Constants
+
+이 Phase에서 사용하는 모든 constants를 아래에 정의합니다.
+
+### src/constants/validation.ts
+```typescript
+export const VALIDATION_RULES = {
+  PRODUCT: {
+    NAME_MIN_LENGTH: 2,
+    NAME_MAX_LENGTH: 100,
+    UDI_DI_LENGTH: 14,
+    MODEL_NAME_MIN_LENGTH: 1,
+    MODEL_NAME_MAX_LENGTH: 50,
+    DESCRIPTION_MAX_LENGTH: 500,
+  },
+} as const
+```
+
+### src/constants/messages.ts
+```typescript
+export const SUCCESS_MESSAGES = {
+  PRODUCT: {
+    CREATED: '제품이 등록되었습니다.',
+    UPDATED: '제품이 수정되었습니다.',
+    DEACTIVATED: '제품이 비활성화되었습니다.',
+  },
+} as const
+
+export const ERROR_MESSAGES = {
+  PRODUCT: {
+    CREATE_FAILED: '제품 등록에 실패했습니다.',
+    UPDATE_FAILED: '제품 수정에 실패했습니다.',
+    DEACTIVATE_FAILED: '제품 비활성화에 실패했습니다.',
+    UDI_DI_DUPLICATE: '이미 등록된 UDI-DI입니다.',
+  },
+} as const
+```
+
+### src/constants/status.ts
+```typescript
+export const PRODUCT_STATUS = {
+  ACTIVE: 'active',
+  INACTIVE: 'inactive',
+} as const
+```
+
+---
+
 ## 📦 Work Content
 
 ### 1. ProductCreatePage 컴포넌트

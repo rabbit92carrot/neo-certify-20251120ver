@@ -20,6 +20,34 @@
 
 ---
 
+## 🔧 Required Constants
+
+이 Phase에서 사용하는 모든 constants를 아래에 정의합니다.
+
+### src/constants/transactions.ts (신규)
+```typescript
+export const TRANSACTION_TYPE = {
+  PRODUCTION: 'production',
+  SHIPMENT: 'shipment',
+  ALL: 'all',
+} as const
+
+export const TRANSACTION_TYPE_LABELS = {
+  production: '생산',
+  shipment: '출고',
+  all: '전체',
+} as const
+```
+
+### src/constants/messages.ts
+```typescript
+export const TRANSACTION_MESSAGES = {
+  NO_HISTORY: '거래 이력이 없습니다',
+} as const
+```
+
+---
+
 ## 📦 Work Content
 
 ### TransactionHistoryPage 컴포넌트
