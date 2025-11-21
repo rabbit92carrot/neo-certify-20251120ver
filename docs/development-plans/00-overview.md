@@ -134,102 +134,127 @@ Timezone: Asia/Seoul (대한민국)
 - [Phase 3.5: 출고](phase-3/phase-3.5-shipment.md)
 - [Phase 3.6: 재고](phase-3/phase-3.6-inventory.md)
 - [Phase 3.7: 이력](phase-3/phase-3.7-history.md)
-- [Phase 3.8: 통합 테스트](phase-3/phase-3.8-integration-test.md)
+- [Phase 3.8: 통합 테스트](phase-3/phase-3.8-integration-tests.md)
 
 ---
 
 ### Phase 4: 유통사 기능
-**목표**: Pending 승인, 출고, 재고 기능 완성
+**목표**: 입고 처리, 병원 출고, 재고 및 반품 기능 완성
 **기간**: 5-7일
 **주요 작업**:
-- Pending 목록 조회
-- 입고 수락/반품
-- 출고 (장바구니 + FIFO)
-- 재고 및 이력 조회
+- 입고 관리 (Pending 승인/반품)
+- 유통사 재고 조회
+- 병원 출고 (장바구니 + FIFO)
+- 반품 처리 및 이력 조회
 
 **세부 계획**:
-- [Phase 4.1: Pending 목록](phase-4/phase-4.1-pending-list.md)
-- [Phase 4.2: 입고 처리](phase-4/phase-4.2-receive-process.md)
-- [Phase 4.3: 출고](phase-4/phase-4.3-shipment.md)
-- [Phase 4.4: 재고](phase-4/phase-4.4-inventory.md)
-- [Phase 4.5: 이력](phase-4/phase-4.5-history.md)
-- [Phase 4.6: 통합 테스트](phase-4/phase-4.6-integration-test.md)
+- [Phase 4.1: 입고 관리](phase-4/phase-4.1-receiving.md)
+- [Phase 4.2: 유통사 재고 조회](phase-4/phase-4.2-distributor-inventory.md)
+- [Phase 4.3: 병원 출고](phase-4/phase-4.3-hospital-shipment.md)
+- [Phase 4.4: 반품 처리](phase-4/phase-4.4-returns.md)
+- [Phase 4.5: 유통사 이력](phase-4/phase-4.5-distributor-history.md)
+- [Phase 4.6: 통합 테스트](phase-4/phase-4.6-integration-tests.md)
 
 ---
 
 ### Phase 5: 병원 기능
-**목표**: 시술 등록, 회수, 반품 기능 완성
+**목표**: 병원 입고, 재고, 사용, 폐기 기능 완성
 **기간**: 5-7일
 **주요 작업**:
-- 시술 등록 (장바구니 + 환자 전화번호)
-- 회수 (24시간 제한)
-- 반품
-- 재고 및 이력 조회
+- 병원 입고 관리 (유통사로부터)
+- 병원 재고 조회
+- 제품 사용 등록 (환자 전화번호 + Virtual Code)
+- 제품 폐기 처리
+- 이력 조회
 
 **세부 계획**:
-- [Phase 5.1: 시술 등록](phase-5/phase-5.1-treatment-registration.md)
-- [Phase 5.2: 회수](phase-5/phase-5.2-recall.md)
-- [Phase 5.3: 반품](phase-5/phase-5.3-return.md)
-- [Phase 5.4: 재고](phase-5/phase-5.4-inventory.md)
-- [Phase 5.5: 이력](phase-5/phase-5.5-history.md)
-- [Phase 5.6: 통합 테스트](phase-5/phase-5.6-integration-test.md)
+- [Phase 5.1: 병원 입고 관리](phase-5/phase-5.1-hospital-receiving.md)
+- [Phase 5.2: 병원 재고 조회](phase-5/phase-5.2-hospital-inventory.md)
+- [Phase 5.3: 제품 사용](phase-5/phase-5.3-usage.md)
+- [Phase 5.4: 제품 폐기](phase-5/phase-5.4-disposal.md)
+- [Phase 5.5: 병원 이력](phase-5/phase-5.5-hospital-history.md)
+- [Phase 5.6: 통합 테스트](phase-5/phase-5.6-integration-tests.md)
 
 ---
 
-### Phase 6: 관리자 및 Mock KakaoTalk
-**목표**: 관리 기능 + 알림 Mock 페이지 완성
+### Phase 6: 관리자 기능
+**목표**: 관리자 기능 + Mock KakaoTalk 페이지 완성
 **기간**: 4-6일
 **주요 작업**:
-- 조직/사용자 관리
-- 전체 이력 조회 (TanStack Table)
-- 회수 모니터링
+- 조직 승인 관리
+- 사용자 관리
+- 제품 마스터 관리
+- 시스템 모니터링
 - Mock KakaoTalk 페이지
 
 **세부 계획**:
-- [Phase 6.1: 조직/사용자 관리](phase-6/phase-6.1-org-user-management.md)
-- [Phase 6.2: 이력 조회](phase-6/phase-6.2-history-query.md)
-- [Phase 6.3: 회수 모니터링](phase-6/phase-6.3-recall-monitoring.md)
-- [Phase 6.4: Mock KakaoTalk](phase-6/phase-6.4-mock-kakaotalk.md)
-- [Phase 6.5: 통합 테스트](phase-6/phase-6.5-integration-test.md)
+- [Phase 6.1: 조직 승인](phase-6/phase-6.1-organization-approval.md)
+- [Phase 6.2: 사용자 관리](phase-6/phase-6.2-user-management.md)
+- [Phase 6.3: 제품 마스터](phase-6/phase-6.3-product-master.md)
+- [Phase 6.4: 시스템 모니터링](phase-6/phase-6.4-system-monitoring.md)
+- [Phase 6.5: 통합 테스트](phase-6/phase-6.5-integration-tests.md)
+- [Phase 6.6: Mock KakaoTalk](phase-6/phase-6.6-mock-kakaotalk.md)
 
 ---
 
-### Phase 7: 비즈니스 로직 및 통합
-**목표**: 핵심 알고리즘 구현 및 전체 통합
+### Phase 7: 통합 테스트 및 최적화
+**목표**: MVP 핵심 로직 구현 및 전체 기능 통합 테스트
 **기간**: 5-7일
 **주요 작업**:
-- FIFO 알고리즘
-- Virtual Code 생성/할당
-- Pending 워크플로우
-- 동시성 처리 (락)
-- E2E 테스트
+- FIFO 알고리즘 구현 및 검증
+- Virtual Code 생성 및 할당 로직
+- Pending 상태 워크플로우
+- 동시성 처리 (PostgreSQL Advisory Lock)
+- E2E 테스트 (Playwright)
+- 성능 최적화 및 버그 수정
 
 **세부 계획**:
-- [Phase 7.1: FIFO](phase-7/phase-7.1-fifo-algorithm.md)
-- [Phase 7.2: Virtual Code](phase-7/phase-7.2-virtual-code.md)
-- [Phase 7.3: Pending](phase-7/phase-7.3-pending-workflow.md)
-- [Phase 7.4: 동시성](phase-7/phase-7.4-concurrency.md)
+- [Phase 7.1: FIFO 알고리즘](phase-7/phase-7.1-fifo-algorithm.md)
+- [Phase 7.2: Virtual Code 생성](phase-7/phase-7.2-virtual-code.md)
+- [Phase 7.3: Pending 워크플로우](phase-7/phase-7.3-pending-workflow.md)
+- [Phase 7.4: 동시성 처리](phase-7/phase-7.4-concurrency.md)
 - [Phase 7.5: E2E 테스트](phase-7/phase-7.5-e2e-test.md)
-- [Phase 7.6: 최적화](phase-7/phase-7.6-optimization.md)
+- [Phase 7.6: 성능 최적화](phase-7/phase-7.6-optimization.md)
 
 ---
 
-### Phase 8: 프로덕션 준비
-**목표**: 보안, 배포, 문서화 완료
+### Phase 8: 프로덕션 배포 준비
+**목표**: 환경 설정, 모니터링, 보안, 배포 완료
 **기간**: 3-5일
 **주요 작업**:
-- 보안 감사 (OWASP Top 10)
-- 에러 처리 및 UX 개선
-- Cloud Supabase 마이그레이션
-- 프로덕션 빌드
-- 최종 문서화
+- 환경 설정 관리 (프로덕션/스테이징)
+- 에러 로깅 (Sentry)
+- 성능 최적화
+- 보안 강화 및 RLS 검증
+- 배포 가이드 작성
 
 **세부 계획**:
-- [Phase 8.1: 보안 감사](phase-8/phase-8.1-security-audit.md)
-- [Phase 8.2: 에러 처리](phase-8/phase-8.2-error-handling.md)
-- [Phase 8.3: Cloud 마이그레이션](phase-8/phase-8.3-cloud-migration.md)
-- [Phase 8.4: 프로덕션 빌드](phase-8/phase-8.4-production-build.md)
-- [Phase 8.5: 문서화](phase-8/phase-8.5-documentation.md)
+- [Phase 8.1: 환경 설정 관리](phase-8/phase-8.1-environment-management.md)
+- [Phase 8.2: 에러 로깅](phase-8/phase-8.2-error-logging.md)
+- [Phase 8.3: 성능 최적화](phase-8/phase-8.3-performance-optimization.md)
+- [Phase 8.4: 보안 강화](phase-8/phase-8.4-security-hardening.md)
+- [Phase 8.5: 배포 가이드](phase-8/phase-8.5-deployment-guide.md)
+
+---
+
+### Post-MVP 기능 (2차 개발)
+**목표**: MVP 검증 후 고급 기능 추가
+**시작 시기**: MVP 출시 및 피드백 수집 후
+**주요 기능**:
+- 카카오 알림톡 API 실제 연동
+- SMS 대체 발송
+- 재고 알림 및 사용기한 경고
+- 통합 리포트 및 대시보드
+- 백업/복구 자동화
+- 모바일 반응형 UI
+
+**세부 계획**:
+- [Post-MVP 개발 개요](post-mvp/README.md)
+- [재고 알림](post-mvp/1-inventory-alerts.md)
+- [사용기한 경고](post-mvp/2-expiry-warnings.md)
+- [회수 시뮬레이션](post-mvp/3-recall-simulation.md)
+- [백업 & 복구](post-mvp/4-backup-restore.md)
+- [통합 리포트](post-mvp/5-integrated-reports.md)
 
 ---
 
@@ -381,15 +406,40 @@ Phase 8 (프로덕션)
 
 1. [PRD v1.2](../../neo-cert-prd-1.2.md) - 제품 요구사항 정의서
 2. [UI Design Reference](../../UI-design-direction.png) - UI 디자인 가이드
-3. [DEVELOPMENT_PRINCIPLES.md](../../DEVELOPMENT_PRINCIPLES.md) - 개발 원칙
-4. [README.md](../../README.md) - 프로젝트 개요
+3. [DESIGN_SYSTEM.md](../DESIGN_SYSTEM.md) - UI/UX 디자인 시스템
+4. [DEVELOPMENT_PRINCIPLES.md](../../DEVELOPMENT_PRINCIPLES.md) - 개발 원칙
+5. [README.md](../../README.md) - 프로젝트 개요
 
 ---
 
 ## 🔄 문서 버전 관리
 
-- **v1.0.0** (2024-01-20): 초안 작성
-- 모든 수정사항은 Git commit history에 기록됨
+### 버전 이력
+
+- **v1.0.0** (2025-11-20): 초안 작성 (초기 계획 템플릿)
+- **v2.0.0** (2025-11-21): PRD 심층 분석 후 구현 구조 조정
+  - Phase 4: Pending/Receiving 통합, 재고/반품 순서 조정
+  - Phase 5: 병원 입고/재고/폐기 기능 추가 (Critical Missing Feature)
+  - Phase 7: 2차 개발 기능 post-mvp로 분리, MVP 테스트 집중
+  - Phase 8: 배포 순서 논리적 재정렬
+- **v2.1.0** (2025-11-21): 문서 일관성 복구 및 Phase 7 상세 계획 완성
+  - Phase 4-8 링크 및 설명 실제 파일 구조와 동기화
+  - Phase 7 상세 파일 6개 생성 (FIFO, Virtual Code, Pending, 동시성, E2E, 최적화)
+  - 변경 이력 추가
+
+### 주요 변경 사유
+
+**Phase 4-5 구조 변경**:
+- PRD Section 5.3의 "제조사 → 유통사 → 병원 → 환자" 공급망 플로우를 정확히 반영
+- 병원도 유통사로부터 입고 프로세스 필요 (Virtual Code 검증)
+- Pending 목록과 입고 처리는 단일 워크플로우로 구현 (UX 개선)
+
+**Phase 7-8 재구성**:
+- PRD Section 7.2의 "2차 개발" 명시 사항 준수
+- Phase 7: MVP 핵심 로직 + 통합 테스트
+- post-mvp: 재고 알림, 사용기한 경고, 리콜 시뮬레이션 등 고급 기능
+
+**문서 품질**: 개념적 계획 (B+ 등급) → 구현 가능 상세 스펙 (A- 등급)
 
 ---
 
