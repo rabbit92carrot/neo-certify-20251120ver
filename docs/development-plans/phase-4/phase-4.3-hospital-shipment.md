@@ -178,7 +178,7 @@ export function HospitalShipmentPage() {
     )
 
     if (!productInventory || productInventory.length === 0) {
-      throw new Error('재고가 없습니다.')
+      throw new Error(ERROR_MESSAGES.INVENTORY.NO_STOCK)
     }
 
     // 2. 총 가용 재고 확인 (타입 안전)
@@ -188,7 +188,7 @@ export function HospitalShipmentPage() {
     )
 
     if (totalAvailable < requestedQty) {
-      throw new Error(`재고가 부족합니다. (요청: ${requestedQty}, 가용: ${totalAvailable})`)
+      throw new Error(ERROR_MESSAGES.INVENTORY.INSUFFICIENT_STOCK(requestedQty, totalAvailable))
     }
 
     // 3. FIFO 순서로 수량 할당 (이미 정렬된 상태)
@@ -211,8 +211,8 @@ export function HospitalShipmentPage() {
   // Create shipment mutation
   const createShipmentMutation = useMutation({
     mutationFn: async () => {
-      if (cart.length === 0) throw new Error('장바구니가 비어 있습니다.')
-      if (!selectedTargetId) throw new Error(`${targetType === 'HOSPITAL' ? '병원' : '유통사'}을 선택해주세요.`)
+      if (cart.length === 0) throw new Error(ERROR_MESSAGES.SHIPMENT.CART_EMPTY)
+      if (!selectedTargetId) throw new Error(ERROR_MESSAGES.VALIDATION.TARGET_REQUIRED(targetType))
 
       /**
        * Phase 1.3 아키텍처:
@@ -252,10 +252,12 @@ export function HospitalShipmentPage() {
 
         if (vcError) throw vcError
         if (!virtualCodes || virtualCodes.length < item.quantity) {
-          throw new Error('재고 부족: Virtual Code를 충분히 할당할 수 없습니다.')
+          throw new Error(ERROR_MESSAGES.INVENTORY.INSUFFICIENT_VIRTUAL_CODES)
         }
 
         // 2. Create Shipment
+        // PRD Section 5.3: Hospital shipments have immediate ownership transfer (COMPLETED status)
+        // PRD Section 5.1: Distributor-to-distributor uses PENDING workflow
         const { data: shipment, error: shipmentError } = await supabase
           .from('shipments')
           .insert({
@@ -263,7 +265,7 @@ export function HospitalShipmentPage() {
             to_organization_id: selectedTargetId,
             shipment_date: format(new Date(), 'yyyy-MM-dd'),
             received_date: targetType === 'HOSPITAL' ? format(new Date(), 'yyyy-MM-dd') : null, // 병원은 즉시
-            status: targetType === 'HOSPITAL' ? SHIPMENT_STATUS.COMPLETED : SHIPMENT_STATUS.PENDING,
+            status: targetType === 'HOSPITAL' ? SHIPMENT_STATUS.COMPLETED : SHIPMENT_STATUS.PENDING, // ✅ PRD compliant
           })
           .select()
           .single()
@@ -377,7 +379,7 @@ export function HospitalShipmentPage() {
         </label>
         <Select value={selectedTargetId} onValueChange={setSelectedTargetId}>
           <SelectTrigger className="mt-1.5">
-            <SelectValue placeholder={`${targetType === 'HOSPITAL' ? '병원' : '유통사'}을 선택하세요`} />
+            <SelectValue placeholder={TERMINOLOGY.PLACEHOLDERS.SELECT_TARGET(targetType)} />
           </SelectTrigger>
           <SelectContent>
             {targetOrganizations?.map((org) => (

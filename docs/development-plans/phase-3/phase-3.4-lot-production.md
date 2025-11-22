@@ -4,6 +4,8 @@
 
 **Phase 3.4**는 Lot 생산 등록 기능을 구현합니다. 제조사 설정을 기반으로 자동으로 Lot 번호를 생성하고, Virtual Code를 발급하며, 생산일과 사용기한을 계산하는 완전한 Lot 생산 워크플로우를 제공합니다.
 
+**PRD 참조**: Section 4.1 (제조사 기능), Section 15.3 (Virtual Code 생성)
+
 ### 주요 목표
 
 1. **Lot 생산 등록 폼**: 제품 선택, 생산 수량, 생산일 입력
@@ -184,19 +186,19 @@ import { LOCK_ERROR_MESSAGES } from '@/constants/locks' // ⭐ 신규
 import type { Product, ManufacturerSettings, Lot } from '@/types/database'
 
 const lotProductionSchema = z.object({
-  product_id: z.string().min(1, '제품을 선택해주세요.'),
+  product_id: z.string().min(1, ERROR_MESSAGES.VALIDATION.PRODUCT_REQUIRED),
   quantity: z
     .number()
     .min(
       VALIDATION_RULES.LOT_PRODUCTION.QUANTITY_MIN,
-      `생산 수량은 최소 ${VALIDATION_RULES.LOT_PRODUCTION.QUANTITY_MIN}개 이상이어야 합니다.`
+      ERROR_MESSAGES.VALIDATION.QUANTITY_MIN(VALIDATION_RULES.LOT_PRODUCTION.QUANTITY_MIN)
     )
     .max(
       VALIDATION_RULES.LOT_PRODUCTION.QUANTITY_MAX,
-      `생산 수량은 최대 ${VALIDATION_RULES.LOT_PRODUCTION.QUANTITY_MAX}개까지 입력 가능합니다.`
+      ERROR_MESSAGES.VALIDATION.QUANTITY_MAX(VALIDATION_RULES.LOT_PRODUCTION.QUANTITY_MAX)
     ),
   manufacture_date: z.date({
-    required_error: '생산일을 선택해주세요.',
+    required_error: ERROR_MESSAGES.VALIDATION.MANUFACTURE_DATE_REQUIRED,
   }),
 })
 
@@ -276,11 +278,11 @@ export function LotProductionPage() {
   ): Promise<string> => {
     // Get product to extract model number
     const product = products?.find((p) => p.id === productId)
-    if (!product) throw new Error('제품을 찾을 수 없습니다.')
+    if (!product) throw new Error(ERROR_MESSAGES.PRODUCT.NOT_FOUND)
 
     // Extract model number from model_name (e.g., "MODEL-123" -> "123")
     const modelMatch = product.model_name.match(/\d+/)
-    if (!modelMatch) throw new Error('모델명에서 숫자를 추출할 수 없습니다.')
+    if (!modelMatch) throw new Error(ERROR_MESSAGES.PRODUCT.INVALID_MODEL_NUMBER)
 
     const modelNumber = modelMatch[0].padStart(settings.model_digits, '0')
 
@@ -474,7 +476,7 @@ export function LotProductionPage() {
                     <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder="제품을 선택해주세요" />
+                          <SelectValue placeholder={TERMINOLOGY.PLACEHOLDERS.SELECT_PRODUCT} />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
