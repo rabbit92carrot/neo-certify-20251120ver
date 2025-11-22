@@ -38,6 +38,9 @@ export * from './locks'
 // Notification Constants
 export * from './notifications'
 
+// Feature Flags
+export * from './featureFlags'
+
 // Re-export commonly used constants for convenience
 export {
   VIRTUAL_CODE_STATUS,
@@ -120,3 +123,11 @@ export {
   NOTIFICATION_STATUS,
   NOTIFICATION_TYPE,
 } from './notifications'
+
+export {
+  FEATURE_FLAGS,
+  featureFlags,
+  isFeatureEnabled,
+  isMVPMode,
+  isProductionMode,
+} from './featureFlags'
