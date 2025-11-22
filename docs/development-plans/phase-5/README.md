@@ -32,6 +32,21 @@
 
 ---
 
+## ✅ 일관성 체크리스트
+
+이 Phase 구현 시 다음 사항을 반드시 확인:
+
+- [ ] **TERMINOLOGY 상수 사용**: 모든 UI 텍스트는 `@/constants/terminology` import
+- [ ] **하드코딩 금지**: 한글/영문 텍스트 직접 입력 없음
+- [ ] **표준 import 패턴**:
+  ```typescript
+  import { TERMINOLOGY, VALIDATION, ERROR_MESSAGES } from '@/constants'
+  ```
+- [ ] **'any' 타입 미사용**: 모든 타입 명시적 정의
+- [ ] **PRD 용어 준수**: '시술' (NOT '수술'), '회수' (NOT '취소'), '환자' (NOT '고객')
+
+---
+
 ## 세부 계획 (8개 유닛)
 
 - **Phase 5.1**: [시술 등록](phase-5.1-treatment-registration.md) - 장바구니 + 환자 전화번호

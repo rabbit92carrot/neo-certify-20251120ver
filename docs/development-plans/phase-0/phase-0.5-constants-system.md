@@ -602,7 +602,7 @@ export const TERMINOLOGY = {
 // 용어 조회 헬퍼 함수
 export function getTerm(path: string, language: 'ko' | 'en' | 'db' = 'ko'): string {
   const paths = path.split('.')
-  let current: any = TERMINOLOGY
+  let current: Record<string, any> = TERMINOLOGY
 
   for (const p of paths) {
     current = current[p]

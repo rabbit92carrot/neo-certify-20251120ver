@@ -62,7 +62,7 @@ export function IntegratedReportsPage() {
 
   const generateReportMutation = useMutation({
     mutationFn: async (config: ReportConfig) => {
-      let reportData: any = {}
+      let reportData: ReportData = {}
 
       switch (config.type) {
         case REPORT_TYPE.INVENTORY_SUMMARY:
@@ -119,7 +119,7 @@ export function IntegratedReportsPage() {
       organization_id: organizationId,
       total_items: inventory?.length ?? 0,
       total_quantity: inventory?.reduce((sum, inv) => sum + inv.current_quantity, 0) ?? 0,
-      items: inventory?.map((inv: any) => ({
+      items: inventory?.map((inv: InventoryItem) => ({
         product_name: inv.lot.product.name,
         udi_di: inv.lot.product.udi_di,
         model_name: inv.lot.product.model_name,
@@ -163,14 +163,14 @@ export function IntegratedReportsPage() {
       generated_at: new Date().toISOString(),
       organization_id: organizationId,
       period: { start_date: startDate, end_date: endDate },
-      receivings: receivings?.map((r: any) => ({
+      receivings: receivings?.map((r: ShipmentRecord) => ({
         date: r.received_date,
         product_name: r.lot.product.name,
         lot_number: r.lot.lot_number,
         quantity: r.quantity,
         type: 'receiving',
       })),
-      usages: usages?.map((u: any) => ({
+      usages: usages?.map((u: TreatmentRecord) => ({
         date: u.used_at.split('T')[0],
         product_name: u.lot.product.name,
         lot_number: u.lot.lot_number,
@@ -178,7 +178,7 @@ export function IntegratedReportsPage() {
         patient_id: u.patient_id,
         type: 'usage',
       })),
-      disposals: disposals?.map((d: any) => ({
+      disposals: disposals?.map((d: DisposalRecord) => ({
         date: d.disposed_at.split('T')[0],
         product_name: d.lot.product.name,
         lot_number: d.lot.lot_number,
@@ -202,7 +202,7 @@ export function IntegratedReportsPage() {
     // Group by product
     const productUsageMap = new Map<string, any>()
 
-    usages?.forEach((u: any) => {
+    usages?.forEach((u: TreatmentRecord) => {
       const productId = u.lot.product.udi_di
       if (!productUsageMap.has(productId)) {
         productUsageMap.set(productId, {
@@ -225,8 +225,8 @@ export function IntegratedReportsPage() {
       organization_id: organizationId,
       period: { start_date: startDate, end_date: endDate },
       total_usage_count: usages?.length ?? 0,
-      total_quantity_used: usages?.reduce((sum: number, u: any) => sum + u.quantity, 0) ?? 0,
-      unique_patients: new Set(usages?.map((u: any) => u.patient_id)).size,
+      total_quantity_used: usages?.reduce((sum: number, u: TreatmentRecord) => sum + u.quantity, 0) ?? 0,
+      unique_patients: new Set(usages?.map((u: TreatmentRecord) => u.patient_id)).size,
       product_statistics: Array.from(productUsageMap.values()).map((stat) => ({
         product_name: stat.product_name,
         udi_di: stat.udi_di,
@@ -247,10 +247,10 @@ export function IntegratedReportsPage() {
       .gt('current_quantity', 0)
 
     const today = new Date()
-    const expiringItems = inventory?.filter((inv: any) => {
+    const expiringItems = inventory?.filter((inv: InventoryItem) => {
       const expiryDate = new Date(inv.lot.expiry_date)
       const daysUntilExpiry = Math.floor((expiryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
-      return daysUntilExpiry <= 90 && daysUntilExpiry >= 0
+      return daysUntilExpiry <= VALIDATION.DATE_FILTER.DAYS_90 && daysUntilExpiry >= 0
     })
 
     return {
@@ -259,7 +259,7 @@ export function IntegratedReportsPage() {
       organization_id: organizationId,
       total_expiring_items: expiringItems?.length ?? 0,
       total_expiring_quantity: expiringItems?.reduce((sum, inv) => sum + inv.current_quantity, 0) ?? 0,
-      items: expiringItems?.map((inv: any) => {
+      items: expiringItems?.map((inv: InventoryItem) => {
         const expiryDate = new Date(inv.lot.expiry_date)
         const daysUntilExpiry = Math.floor((expiryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
         return {
@@ -270,13 +270,17 @@ export function IntegratedReportsPage() {
           days_until_expiry: daysUntilExpiry,
           current_quantity: inv.current_quantity,
           urgency:
-            daysUntilExpiry <= 7 ? 'critical' : daysUntilExpiry <= 30 ? 'warning' : 'notice',
+            daysUntilExpiry <= VALIDATION.EXPIRY_CRITICAL_DAYS
+              ? 'critical'
+              : daysUntilExpiry <= VALIDATION.EXPIRY_WARNING_DAYS
+              ? 'warning'
+              : 'notice',
         }
       }),
     }
   }
 
-  const downloadReport = (data: any, config: ReportConfig) => {
+  const downloadReport = (data: ReportData, config: ReportConfig) => {
     let content: string
     let fileExtension: string
     let mimeType: string
@@ -300,21 +304,21 @@ export function IntegratedReportsPage() {
     URL.revokeObjectURL(url)
   }
 
-  const convertToCSV = (data: any, reportType: string): string => {
+  const convertToCSV = (data: ReportData, reportType: string): string => {
     // Simple CSV conversion (can be enhanced with proper library)
     let csv = ''
 
     switch (reportType) {
       case REPORT_TYPE.INVENTORY_SUMMARY:
         csv = 'Product Name,UDI-DI,Model Name,Lot Number,Expiry Date,Quantity\n'
-        data.items?.forEach((item: any) => {
+        data.items?.forEach((item: InventoryItem) => {
           csv += `"${item.product_name}","${item.udi_di}","${item.model_name}","${item.lot_number}","${item.expiry_date}",${item.current_quantity}\n`
         })
         break
 
       case REPORT_TYPE.USAGE_STATISTICS:
         csv = 'Product Name,UDI-DI,Total Quantity,Usage Count,Patient Count\n'
-        data.product_statistics?.forEach((stat: any) => {
+        data.product_statistics?.forEach((stat: ProductStatistic) => {
           csv += `"${stat.product_name}","${stat.udi_di}",${stat.total_quantity},${stat.usage_count},${stat.patient_count}\n`
         })
         break
@@ -606,7 +610,7 @@ describe('IntegratedReportsPage', () => {
 
 **해결방법**:
 ```typescript
-const convertToCSV = (data: any, reportType: string): string => {
+const convertToCSV = (data: ReportData, reportType: string): string => {
   let csv = '\uFEFF' // ← UTF-8 BOM 추가
   csv += 'Product Name,UDI-DI,...\n'
   // ...

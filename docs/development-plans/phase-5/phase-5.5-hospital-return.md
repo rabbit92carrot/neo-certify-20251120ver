@@ -342,7 +342,7 @@ export function HospitalReturnRequestPage() {
               <Input
                 {...form.register('virtual_code')}
                 placeholder="12자리 Virtual Code"
-                maxLength={12}
+                maxLength={VALIDATION.VIRTUAL_CODE_LENGTH}
                 className="mt-1.5"
               />
               {form.formState.errors.virtual_code && (

@@ -48,16 +48,17 @@ import { Input } from '@/components/ui/input'
 import { useToast } from '@/hooks/use-toast'
 import { ERROR_MESSAGES, SUCCESS_MESSAGES } from '@/constants/messages'
 import { VALIDATION_RULES } from '@/constants/validation'
+import { TERMINOLOGY } from '@/constants/terminology' // ⭐ TERMINOLOGY import 추가
 
-// Zod 스키마 (타입 안전성)
+// Zod 스키마 (타입 안전성) - 하드코딩 제거 예시
 const loginSchema = z.object({
   email: z
     .string()
-    .min(1, '이메일을 입력해주세요.')
-    .email('올바른 이메일 형식이 아닙니다.'),
+    .min(1, ERROR_MESSAGES.REQUIRED_FIELD.replace('{field}', '이메일'))
+    .email(ERROR_MESSAGES.INVALID_FORMAT.replace('{field}', '이메일')),
   password: z
     .string()
-    .min(1, '비밀번호를 입력해주세요.')
+    .min(1, ERROR_MESSAGES.REQUIRED_FIELD.replace('{field}', '비밀번호'))
     .min(
       VALIDATION_RULES.PASSWORD.MIN_LENGTH,
       `비밀번호는 최소 ${VALIDATION_RULES.PASSWORD.MIN_LENGTH}자 이상이어야 합니다.`
@@ -95,7 +96,7 @@ export function LoginPage() {
       navigate('/dashboard')
     } catch (error) {
       toast({
-        title: '로그인 실패',
+        title: ERROR_MESSAGES.AUTH.LOGIN_FAILED || '로그인 실패', // 상수 사용
         description: error instanceof Error ? error.message : ERROR_MESSAGES.AUTH.INVALID_CREDENTIALS,
         variant: 'destructive',
       })

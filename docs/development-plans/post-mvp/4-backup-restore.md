@@ -465,7 +465,7 @@ const mockBackups = [
       users: 50,
       products: 100,
     },
-    status: 'completed',
+    status: 'COMPLETED',
     created_by: 'admin-123',
     created_at: '2025-01-20T00:00:00Z',
     user: {
@@ -797,7 +797,7 @@ app.post('/api/backups', async (req, res) => {
       .insert({
         backup_name: backupFile,
         backup_size_kb: Math.floor(fileSize / 1024),
-        status: 'completed',
+        status: 'COMPLETED',
         created_by: user_id,
       })
 

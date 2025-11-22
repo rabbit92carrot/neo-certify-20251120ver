@@ -87,7 +87,7 @@ const handleShipment = async (distributorId: string, items: CartItem[]) => {
     .insert({
       from_organization_id: userData.organization_id,
       to_organization_id: distributorId,
-      status: 'pending',
+      status: 'PENDING',
       shipped_at: new Date().toISOString(),
     })
     .select()
@@ -135,7 +135,7 @@ const handleApprove = async (shipmentId: string) => {
   const { error: shipmentError } = await supabase
     .from('shipments')
     .update({
-      status: 'approved',
+      status: 'APPROVED',
       approved_at: new Date().toISOString(),
     })
     .eq('id', shipmentId)
@@ -177,7 +177,7 @@ const handleReject = async (shipmentId: string, reason: string) => {
   await supabase
     .from('shipments')
     .update({
-      status: 'rejected',
+      status: 'REJECTED',
       rejected_at: new Date().toISOString(),
       reject_reason: reason,
     })

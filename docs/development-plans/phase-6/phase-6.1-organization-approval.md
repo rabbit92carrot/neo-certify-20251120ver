@@ -464,7 +464,7 @@ const mockPendingOrganizations = [
     representative_name: '홍길동',
     address: '서울특별시 강남구',
     phone_number: '02-1234-5678',
-    status: 'pending',
+    status: 'PENDING',
     created_at: '2025-01-15T00:00:00Z',
   },
   {
@@ -475,7 +475,7 @@ const mockPendingOrganizations = [
     representative_name: '김철수',
     address: '부산광역시 해운대구',
     phone_number: '051-9876-5432',
-    status: 'pending',
+    status: 'PENDING',
     created_at: '2025-01-16T00:00:00Z',
   },
 ]

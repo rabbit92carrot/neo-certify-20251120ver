@@ -80,7 +80,7 @@ export const supabase = createClient<Database>(
 
 ---
 
-### 3. AuthContext 구현
+### 3. AuthContext 구현 (30분 세션 타임아웃 포함)
 
 **src/contexts/AuthContext.tsx**:
 ```typescript
@@ -88,6 +88,8 @@ import { createContext, useContext, useEffect, useState, useCallback } from 'rea
 import { User, Session, AuthError } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
 import { ERROR_MESSAGES } from '@/constants/messages'
+import { SESSION } from '@/constants/session'
+import { useToast } from '@/hooks/use-toast'
 
 /**
  * AuthContext 타입 정의
@@ -116,6 +118,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [session, setSession] = useState<Session | null>(null)
   const [loading, setLoading] = useState(true)
+  const [lastActivityTime, setLastActivityTime] = useState(Date.now())
+  const { toast } = useToast()
 
   // 초기 세션 로드 및 Auth 상태 변경 구독
   useEffect(() => {
@@ -139,6 +143,47 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       subscription.unsubscribe()
     }
   }, [])
+
+  // 사용자 활동 감지 (마우스 이동, 키보드 입력, 클릭)
+  useEffect(() => {
+    if (!user) return // 로그인 상태가 아니면 추적하지 않음
+
+    const updateActivity = () => {
+      setLastActivityTime(Date.now())
+    }
+
+    window.addEventListener('mousemove', updateActivity)
+    window.addEventListener('keydown', updateActivity)
+    window.addEventListener('click', updateActivity)
+    window.addEventListener('scroll', updateActivity)
+
+    return () => {
+      window.removeEventListener('mousemove', updateActivity)
+      window.removeEventListener('keydown', updateActivity)
+      window.removeEventListener('click', updateActivity)
+      window.removeEventListener('scroll', updateActivity)
+    }
+  }, [user])
+
+  // 세션 타임아웃 체크 (1분마다)
+  useEffect(() => {
+    if (!user) return // 로그인 상태가 아니면 체크하지 않음
+
+    const interval = setInterval(() => {
+      const inactiveTime = Date.now() - lastActivityTime
+
+      if (inactiveTime > SESSION.TIMEOUT_MS) {
+        // 30분 비활성 시 자동 로그아웃
+        toast({
+          title: ERROR_MESSAGES.AUTH.SESSION_EXPIRED,
+          description: `${SESSION.TIMEOUT_MINUTES}분 동안 활동이 없어 자동 로그아웃되었습니다.`,
+        })
+        signOut()
+      }
+    }, SESSION.CHECK_INTERVAL_MS)
+
+    return () => clearInterval(interval)
+  }, [user, lastActivityTime])
 
   // 로그인
   const signIn = useCallback(async (email: string, password: string) => {
@@ -314,6 +359,21 @@ export interface AuthState {
 
 ## 🔧 Constants 정의
 
+**src/constants/session.ts** (신규 생성):
+```typescript
+/**
+ * 세션 관리 상수
+ * - TIMEOUT_MINUTES: 비활성 시 자동 로그아웃 시간 (분)
+ * - TIMEOUT_MS: 비활성 시 자동 로그아웃 시간 (밀리초)
+ * - CHECK_INTERVAL_MS: 세션 타임아웃 체크 주기 (1분마다)
+ */
+export const SESSION = {
+  TIMEOUT_MINUTES: 30,
+  TIMEOUT_MS: 30 * 60 * 1000, // 30분 = 1,800,000ms
+  CHECK_INTERVAL_MS: 60 * 1000, // 1분 = 60,000ms
+} as const
+```
+
 **src/constants/messages.ts** (추가):
 ```typescript
 export const ERROR_MESSAGES = {
@@ -323,7 +383,7 @@ export const ERROR_MESSAGES = {
     SIGNOUT_FAILED: '로그아웃에 실패했습니다.',
     PASSWORD_RESET_FAILED: '비밀번호 재설정 이메일 발송에 실패했습니다.',
     PASSWORD_UPDATE_FAILED: '비밀번호 변경에 실패했습니다.',
-    SESSION_EXPIRED: '세션이 만료되었습니다. 다시 로그인해주세요.',
+    SESSION_EXPIRED: '세션이 만료되었습니다.',
     UNAUTHORIZED: '접근 권한이 없습니다.',
   },
   // ... 기존 메시지들
@@ -348,8 +408,9 @@ export const SUCCESS_MESSAGES = {
 **생성**:
 - `src/config/env.ts`
 - `src/lib/supabase.ts`
-- `src/contexts/AuthContext.tsx`
+- `src/contexts/AuthContext.tsx` (30분 세션 타임아웃 포함)
 - `src/types/auth.ts`
+- `src/constants/session.ts` ⭐ (세션 타임아웃 상수)
 
 **수정**:
 - `src/constants/messages.ts` (AUTH 메시지 추가)

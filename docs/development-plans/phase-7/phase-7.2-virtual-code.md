@@ -127,7 +127,7 @@ const handleShipment = async (items: CartItem[]) => {
   await supabase.from('shipments').insert({
     from_organization_id: userData.organization_id,
     to_organization_id: selectedDistributor.id,
-    status: 'pending',
+    status: 'PENDING',
   })
 
   await supabase.from('shipment_items').insert(shipmentItems)

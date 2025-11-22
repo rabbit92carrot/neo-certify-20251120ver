@@ -522,7 +522,7 @@ CREATE TABLE expiry_warnings (
   expiry_date DATE NOT NULL,
   days_until_expiry INTEGER NOT NULL,
   warning_threshold INTEGER NOT NULL,
-  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'acknowledged')),
+  status TEXT NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE', 'ACKNOWLEDGED')),
   acknowledged_at TIMESTAMPTZ,
   acknowledged_by UUID REFERENCES users(id),
   created_at TIMESTAMPTZ DEFAULT NOW()
@@ -688,7 +688,7 @@ const mockWarnings = [
     expiry_date: '2025-02-15',
     days_until_expiry: 5,
     warning_threshold: 30,
-    status: 'active',
+    status: 'ACTIVE',
     acknowledged_at: null,
     acknowledged_by: null,
     created_at: '2025-01-20T00:00:00Z',

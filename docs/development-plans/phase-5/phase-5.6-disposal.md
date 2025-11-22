@@ -137,7 +137,7 @@ export function DisposalPage() {
               value={virtualCode}
               onChange={(e) => setVirtualCode(e.target.value)}
               placeholder="12자리 Virtual Code"
-              maxLength={12}
+              maxLength={VALIDATION.VIRTUAL_CODE_LENGTH}
               className="mt-1.5"
             />
           </div>

@@ -161,19 +161,29 @@ export function HospitalShipmentPage() {
    * @returns 할당된 Virtual Code 목록 (FIFO 정렬 순서)
    * @throws 재고가 없거나 부족한 경우 에러
    */
+  // 타입 정의 추가 (any 타입 제거)
+  interface InventoryItem {
+    lot: {
+      product_id: string;
+      // 다른 lot 필드들...
+    };
+    current_quantity: number;
+    // 다른 inventory 필드들...
+  }
+
   const allocateFIFO = (productId: string, requestedQty: number) => {
-    // 1. 해당 제품의 재고만 필터링
+    // 1. 해당 제품의 재고만 필터링 (타입 안전)
     const productInventory = productsWithInventory?.filter(
-      (inv: any) => inv.lot.product_id === productId
+      (inv: InventoryItem) => inv.lot.product_id === productId
     )
 
     if (!productInventory || productInventory.length === 0) {
       throw new Error('재고가 없습니다.')
     }
 
-    // 2. 총 가용 재고 확인
+    // 2. 총 가용 재고 확인 (타입 안전)
     const totalAvailable = productInventory.reduce(
-      (sum: number, inv: any) => sum + inv.current_quantity,
+      (sum: number, inv: InventoryItem) => sum + inv.current_quantity,
       0
     )
 

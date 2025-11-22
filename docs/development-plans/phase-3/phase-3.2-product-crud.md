@@ -940,7 +940,7 @@ export interface Product {
   udi_di: string
   model_name: string
   description: string | null
-  status: 'active' | 'inactive'
+  status: 'ACTIVE' | 'INACTIVE'
   created_at: string
   updated_at: string
 }
@@ -1249,7 +1249,7 @@ describe('ProductCreatePage', () => {
         udi_di: '01234567890123',
         model_name: 'MODEL-A',
         description: null,
-        status: 'active',
+        status: 'ACTIVE',
         created_at: '2025-01-20T00:00:00Z',
         updated_at: '2025-01-20T00:00:00Z',
       },
@@ -1343,7 +1343,7 @@ const mockProduct = {
   udi_di: '01234567890123',
   model_name: 'MODEL-A',
   description: '고품질 의료용 실입니다.',
-  status: 'active',
+  status: 'ACTIVE',
   created_at: '2025-01-15T00:00:00Z',
   updated_at: '2025-01-15T00:00:00Z',
   organization: {
@@ -1352,7 +1352,7 @@ const mockProduct = {
     name: '제조사 A',
     business_number: '123-45-67890',
     business_license_url: null,
-    status: 'approved',
+    status: 'APPROVED',
     created_at: '2025-01-01T00:00:00Z',
     updated_at: '2025-01-01T00:00:00Z',
   },

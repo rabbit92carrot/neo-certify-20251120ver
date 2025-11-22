@@ -855,7 +855,7 @@ const mockProducts = [
     name: '의료용 실',
     udi_di: '01234567890123',
     model_name: 'MODEL-123',
-    status: 'active',
+    status: 'ACTIVE',
     created_at: '2025-01-01T00:00:00Z',
     updated_at: '2025-01-01T00:00:00Z',
   },

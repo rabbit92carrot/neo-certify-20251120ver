@@ -606,7 +606,7 @@ const mockProducts = [
     udi_di: '12345678901234',
     model_name: 'Thread-A100',
     description: 'PDO 단일 실',
-    status: 'active',
+    status: 'ACTIVE',
     created_at: '2025-01-10T00:00:00Z',
     organization: {
       id: 'org-1',
@@ -619,7 +619,7 @@ const mockProducts = [
     udi_di: '98765432109876',
     model_name: 'Needle-B200',
     description: '안전 바늘',
-    status: 'pending',
+    status: 'PENDING',
     created_at: '2025-01-15T00:00:00Z',
     organization: {
       id: 'org-2',
@@ -632,7 +632,7 @@ const mockProducts = [
     udi_di: '11223344556677',
     model_name: 'Scissor-C300',
     description: '수술용 가위',
-    status: 'inactive',
+    status: 'INACTIVE',
     created_at: '2025-01-20T00:00:00Z',
     organization: {
       id: 'org-3',

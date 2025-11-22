@@ -140,7 +140,7 @@ export function SystemMonitoringPage() {
       // Group by organization
       const groupedMap = new Map<string, OrganizationInventory>()
 
-      data.forEach((inv: any) => {
+      data.forEach((inv: InventoryWithOrganization) => {
         const orgId = inv.organization_id
         if (!groupedMap.has(orgId)) {
           groupedMap.set(orgId, {
@@ -201,7 +201,7 @@ export function SystemMonitoringPage() {
       // Group by date
       const volumeMap = new Map<string, TransactionVolume>()
 
-      receivings?.forEach((r: any) => {
+      receivings?.forEach((r: ShipmentRecord) => {
         const date = r.received_date
         if (!volumeMap.has(date)) {
           volumeMap.set(date, {
@@ -215,7 +215,7 @@ export function SystemMonitoringPage() {
         volumeMap.get(date)!.receiving_count += 1
       })
 
-      shipments?.forEach((s: any) => {
+      shipments?.forEach((s: ShipmentRecord) => {
         const date = s.created_at.split('T')[0]
         if (!volumeMap.has(date)) {
           volumeMap.set(date, {

@@ -78,7 +78,21 @@ export function HospitalHistoryPage() {
         .order('received_date', { ascending: false })
 
       if (error) throw error
-      return data.map((s: any) => ({
+
+      // 타입 정의 (any 제거)
+      interface ShipmentData {
+        id: string;
+        received_date: string;
+        lot: {
+          lot_number: string;
+          product: {
+            name: string;
+          };
+        };
+        quantity: number;
+      }
+
+      return data.map((s: ShipmentData) => ({
         id: s.id,
         type: 'receiving' as TransactionType,
         date: s.received_date,
@@ -102,7 +116,22 @@ export function HospitalHistoryPage() {
         .order('used_at', { ascending: false })
 
       if (error) throw error
-      return data.map((u: any) => ({
+
+      // 타입 정의 (any 제거)
+      interface UsageData {
+        id: string;
+        used_at: string;
+        lot: {
+          lot_number: string;
+          product: {
+            name: string;
+          };
+        };
+        quantity: number;
+        patient_id: string;
+      }
+
+      return data.map((u: UsageData) => ({
         id: u.id,
         type: 'usage' as TransactionType,
         date: u.used_at.split('T')[0],
@@ -126,7 +155,7 @@ export function HospitalHistoryPage() {
         .order('disposed_at', { ascending: false })
 
       if (error) throw error
-      return data.map((d: any) => ({
+      return data.map((d: DisposalWithLotAndProduct) => ({
         id: d.id,
         type: 'disposal' as TransactionType,
         date: d.disposed_at.split('T')[0],

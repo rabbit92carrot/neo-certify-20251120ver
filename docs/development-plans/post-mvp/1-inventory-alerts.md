@@ -498,7 +498,7 @@ CREATE TABLE inventory_alerts (
   lot_id UUID NOT NULL REFERENCES lots(id),
   current_quantity INTEGER NOT NULL,
   threshold INTEGER NOT NULL,
-  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'resolved')),
+  status TEXT NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE', 'RESOLVED')),
   resolved_at TIMESTAMPTZ,
   resolved_by UUID REFERENCES users(id),
   created_at TIMESTAMPTZ DEFAULT NOW()

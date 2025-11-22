@@ -41,14 +41,18 @@
 
 ### src/constants/status.ts
 ```typescript
+// ⭐ TERMINOLOGY 상수 import 추가
+import { TERMINOLOGY } from '@/constants/terminology'
+
 export const PRODUCT_STATUS = {
   ACTIVE: 'active',
   INACTIVE: 'inactive',
 } as const
 
+// 하드코딩 제거 - TERMINOLOGY 사용
 export const PRODUCT_STATUS_LABELS = {
-  active: '활성',
-  inactive: '비활성',
+  active: TERMINOLOGY.STATUSES.ACTIVE.ko,     // '활성'
+  inactive: TERMINOLOGY.STATUSES.INACTIVE.ko,  // '비활성'
 } as const
 
 export const PRODUCT_STATUS_COLORS = {
@@ -59,15 +63,22 @@ export const PRODUCT_STATUS_COLORS = {
 
 ### src/constants/messages.ts
 ```typescript
+import { formatMessage } from '@/constants/messages'
+import { TERMINOLOGY } from '@/constants/terminology'
+
 export const SUCCESS_MESSAGES = {
   PRODUCT: {
-    STATUS_UPDATED: '제품 상태가 업데이트되었습니다.',
+    STATUS_UPDATED: formatMessage('{item} 상태가 업데이트되었습니다.', {
+      item: TERMINOLOGY.ENTITIES.PRODUCT.ko
+    }),
   },
 } as const
 
 export const ERROR_MESSAGES = {
   PRODUCT: {
-    STATUS_UPDATE_FAILED: '제품 상태 업데이트에 실패했습니다.',
+    STATUS_UPDATE_FAILED: formatMessage('{item} 상태 업데이트에 실패했습니다.', {
+      item: TERMINOLOGY.ENTITIES.PRODUCT.ko
+    }),
   },
 } as const
 ```
@@ -532,7 +543,7 @@ export interface Product {
   name: string
   udi_di: string
   model_name: string
-  status: 'active' | 'inactive'
+  status: 'ACTIVE' | 'INACTIVE'
   created_at: string
   updated_at: string
 }
@@ -544,7 +555,7 @@ export interface Organization {
   name: string
   business_number: string
   business_license_url: string | null
-  status: 'pending' | 'approved' | 'rejected'
+  status: 'PENDING' | 'APPROVED' | 'REJECTED'
   created_at: string
   updated_at: string
 }
@@ -561,7 +572,7 @@ export interface ProductWithOrganization extends Product {
 
 export interface ProductListFilters {
   search?: string
-  status?: 'active' | 'inactive'
+  status?: 'ACTIVE' | 'INACTIVE'
 }
 
 export interface ProductListSorting {
@@ -580,18 +591,18 @@ export interface ProductListSorting {
 
 ```typescript
 export const PRODUCT_STATUS = {
-  ACTIVE: 'active',
-  INACTIVE: 'inactive',
+  ACTIVE: 'ACTIVE',
+  INACTIVE: 'INACTIVE',
 } as const
 
 export const PRODUCT_STATUS_LABELS = {
-  active: '활성',
-  inactive: '비활성',
+  ACTIVE: '활성',
+  INACTIVE: '비활성',
 } as const
 
 export const PRODUCT_STATUS_COLORS = {
-  active: 'bg-green-100 text-green-800 hover:bg-green-200',
-  inactive: 'bg-gray-100 text-gray-800 hover:bg-gray-200',
+  ACTIVE: 'bg-green-100 text-green-800 hover:bg-green-200',
+  INACTIVE: 'bg-gray-100 text-gray-800 hover:bg-gray-200',
 } as const
 ```
 
@@ -750,7 +761,7 @@ const mockProducts: ProductWithOrganization[] = [
     name: '의료용 실',
     udi_di: '01234567890123',
     model_name: 'MODEL-A',
-    status: 'active',
+    status: 'ACTIVE',
     created_at: '2025-01-15T00:00:00Z',
     updated_at: '2025-01-15T00:00:00Z',
     organization: {
@@ -759,7 +770,7 @@ const mockProducts: ProductWithOrganization[] = [
       name: '제조사 A',
       business_number: '123-45-67890',
       business_license_url: null,
-      status: 'approved',
+      status: 'APPROVED',
       created_at: '2025-01-01T00:00:00Z',
       updated_at: '2025-01-01T00:00:00Z',
     },
@@ -770,7 +781,7 @@ const mockProducts: ProductWithOrganization[] = [
     name: '수술용 바늘',
     udi_di: '01234567890124',
     model_name: 'MODEL-B',
-    status: 'inactive',
+    status: 'INACTIVE',
     created_at: '2025-01-10T00:00:00Z',
     updated_at: '2025-01-10T00:00:00Z',
     organization: {
@@ -779,7 +790,7 @@ const mockProducts: ProductWithOrganization[] = [
       name: '제조사 A',
       business_number: '123-45-67890',
       business_license_url: null,
-      status: 'approved',
+      status: 'APPROVED',
       created_at: '2025-01-01T00:00:00Z',
       updated_at: '2025-01-01T00:00:00Z',
     },

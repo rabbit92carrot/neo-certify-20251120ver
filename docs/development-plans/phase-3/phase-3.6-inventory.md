@@ -147,7 +147,7 @@ export function InventoryPage() {
         return (
           <div className="flex items-center gap-2">
             <span className="text-sm">{info.getValue()}</span>
-            {daysUntilExpiry <= 30 && daysUntilExpiry >= 0 && (
+            {daysUntilExpiry <= VALIDATION.EXPIRY_WARNING_DAYS && daysUntilExpiry >= 0 && (
               <Badge variant="destructive" className="text-xs">
                 {daysUntilExpiry}일 남음
               </Badge>
@@ -184,7 +184,7 @@ export function InventoryPage() {
   const totalQuantity = inventory?.reduce((sum, inv) => sum + inv.current_quantity, 0) ?? 0
   const expiringCount = inventory?.filter((inv) => {
     const daysUntilExpiry = differenceInDays(parseISO(inv.lot.expiry_date), new Date())
-    return daysUntilExpiry <= 30 && daysUntilExpiry >= 0
+    return daysUntilExpiry <= VALIDATION.EXPIRY_WARNING_DAYS && daysUntilExpiry >= 0
   }).length ?? 0
 
   return (

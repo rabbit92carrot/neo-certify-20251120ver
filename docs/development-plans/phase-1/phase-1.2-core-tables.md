@@ -58,10 +58,12 @@ SET timezone TO 'Asia/Seoul';
 -- =============================================
 -- TABLE: organizations
 -- Description: 제조사/유통사/병원 조직 정보
+-- Constants Mapping: @/constants/status.ts
 -- =============================================
 
 CREATE TABLE organizations (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  -- Constants: ORGANIZATION_TYPE = { MANUFACTURER: 'MANUFACTURER', DISTRIBUTOR: 'DISTRIBUTOR', HOSPITAL: 'HOSPITAL' }
   type TEXT NOT NULL CHECK (type IN ('MANUFACTURER', 'DISTRIBUTOR', 'HOSPITAL')),
   business_number VARCHAR(12) NOT NULL UNIQUE,
   business_license_file TEXT NOT NULL,
@@ -69,6 +71,7 @@ CREATE TABLE organizations (
   representative_name VARCHAR(100) NOT NULL,
   representative_contact VARCHAR(20) NOT NULL,
   address TEXT NOT NULL,
+  -- Constants: ORGANIZATION_STATUS = { PENDING_APPROVAL, ACTIVE, INACTIVE, DELETED }
   status TEXT NOT NULL CHECK (status IN ('PENDING_APPROVAL', 'ACTIVE', 'INACTIVE', 'DELETED')) DEFAULT 'PENDING_APPROVAL',
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()

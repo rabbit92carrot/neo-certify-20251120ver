@@ -95,7 +95,11 @@ export function HospitalReceivingHistoryPage() {
 
       // Date filter
       if (dateFilter !== 'all') {
-        const daysMap = { '30d': 30, '90d': 90, '1y': 365 }
+        const daysMap = {
+          '30d': VALIDATION.DATE_FILTER.DAYS_30,
+          '90d': VALIDATION.DATE_FILTER.DAYS_90,
+          '1y': VALIDATION.DATE_FILTER.DAYS_YEAR
+        }
         const days = daysMap[dateFilter]
         const startDate = new Date()
         startDate.setDate(startDate.getDate() - days)

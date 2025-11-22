@@ -32,6 +32,21 @@
 
 ---
 
+## ✅ 일관성 체크리스트
+
+이 Phase 구현 시 다음 사항을 반드시 확인:
+
+- [ ] **TERMINOLOGY 상수 사용**: 모든 UI 텍스트는 `@/constants/terminology` import
+- [ ] **하드코딩 금지**: 한글/영문 텍스트 직접 입력 없음
+- [ ] **표준 import 패턴**:
+  ```typescript
+  import { TERMINOLOGY, VALIDATION, ERROR_MESSAGES } from '@/constants'
+  ```
+- [ ] **'any' 타입 미사용**: 모든 타입 명시적 정의
+- [ ] **PRD 용어 준수**: 'RLS' (NOT '권한'), 'Cloud Supabase' (NOT 'Supabase Cloud')
+
+---
+
 ## 세부 계획 (5개 유닛)
 
 - **Phase 8.1**: 보안 감사 (OWASP Top 10)
