@@ -48,28 +48,40 @@ graph LR
 
 ### 2. shipments 테이블 스키마
 
-```sql
-CREATE TYPE shipment_status AS ENUM ('pending', 'approved', 'rejected', 'recalled');
+**⚠️ 주의**: `shipments`, `shipment_details` 테이블은 **Phase 1.3에서 이미 생성**되었습니다.
 
+Phase 7.3에서는 Pending 워크플로우 **기능만 추가**합니다.
+
+**기존 스키마** (Phase 1.3에서 생성됨):
+```sql
+-- Phase 1.3에서 이미 생성된 테이블
 CREATE TABLE shipments (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  from_organization_id UUID REFERENCES organizations(id),
-  to_organization_id UUID REFERENCES organizations(id),
-  status shipment_status DEFAULT 'pending',
+  from_organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  to_organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  status TEXT NOT NULL CHECK (status IN ('PENDING', 'APPROVED', 'REJECTED', 'COMPLETED')) DEFAULT 'PENDING',
   shipped_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  received_date DATE,
   approved_at TIMESTAMPTZ,
   rejected_at TIMESTAMPTZ,
-  recalled_at TIMESTAMPTZ,
   reject_reason TEXT,
-  recall_reason TEXT,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_shipments_status ON shipments(status);
-CREATE INDEX idx_shipments_to_org ON shipments(to_organization_id);
-CREATE INDEX idx_shipments_shipped_at ON shipments(shipped_at);
+CREATE TABLE shipment_details (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  shipment_id UUID NOT NULL REFERENCES shipments(id) ON DELETE CASCADE,
+  virtual_code_id UUID NOT NULL REFERENCES virtual_codes(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CONSTRAINT uq_shipment_virtual_code UNIQUE(shipment_id, virtual_code_id)
+);
 ```
+
+**Phase 7.3에서 추가할 기능**:
+- Pending 상태 관리 UI
+- 승인/거부 로직
+- 24시간 이내 회수 기능
 
 ---
 

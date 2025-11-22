@@ -447,6 +447,78 @@ CREATE POLICY "Admins can manage all notifications"
   ON notification_messages FOR ALL
   USING (auth.is_admin())
   WITH CHECK (auth.is_admin());
+
+-- =============================================
+-- TABLE: shipments - RLS Policies
+-- =============================================
+
+ALTER TABLE shipments ENABLE ROW LEVEL SECURITY;
+
+-- Policy: View shipments where user's organization is sender or receiver
+CREATE POLICY "Organizations can view related shipments"
+  ON shipments FOR SELECT
+  USING (
+    from_organization_id = auth.user_organization_id()
+    OR to_organization_id = auth.user_organization_id()
+    OR auth.is_admin()
+  );
+
+-- Policy: Only sender organization can create shipments
+CREATE POLICY "Sender can create shipments"
+  ON shipments FOR INSERT
+  WITH CHECK (
+    from_organization_id = auth.user_organization_id()
+  );
+
+-- Policy: Receiver can update shipment status (approve/reject)
+CREATE POLICY "Receiver can update shipment status"
+  ON shipments FOR UPDATE
+  USING (to_organization_id = auth.user_organization_id())
+  WITH CHECK (to_organization_id = auth.user_organization_id());
+
+-- Policy: Admins can manage all shipments
+CREATE POLICY "Admins can manage all shipments"
+  ON shipments FOR ALL
+  USING (auth.is_admin())
+  WITH CHECK (auth.is_admin());
+
+-- =============================================
+-- TABLE: shipment_details - RLS Policies
+-- =============================================
+
+ALTER TABLE shipment_details ENABLE ROW LEVEL SECURITY;
+
+-- Policy: View shipment_details for accessible shipments
+CREATE POLICY "Organizations can view related shipment_details"
+  ON shipment_details FOR SELECT
+  USING (
+    EXISTS (
+      SELECT 1 FROM shipments
+      WHERE shipments.id = shipment_details.shipment_id
+      AND (
+        shipments.from_organization_id = auth.user_organization_id()
+        OR shipments.to_organization_id = auth.user_organization_id()
+      )
+    )
+    OR auth.is_admin()
+  );
+
+-- Policy: Sender can insert shipment_details
+CREATE POLICY "Sender can insert shipment_details"
+  ON shipment_details FOR INSERT
+  WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM shipments
+      WHERE shipments.id = shipment_details.shipment_id
+      AND shipments.from_organization_id = auth.user_organization_id()
+    )
+  );
+
+-- Policy: Admins can manage all shipment_details
+CREATE POLICY "Admins can manage all shipment_details"
+  ON shipment_details FOR ALL
+  USING (auth.is_admin())
+  WITH CHECK (auth.is_admin());
 ```
 
 ---

@@ -44,7 +44,7 @@
 
 ## 데이터베이스 구조
 
-### 핵심 테이블 (13개)
+### 핵심 테이블 (15개)
 
 #### 1. 조직 및 사용자 (3개)
 - **organizations**: 제조사/유통사/병원 정보
@@ -60,15 +60,19 @@
 - **patients**: 환자 정보 (전화번호 기반)
 - **history**: 이력 추적 (모든 거래 기록)
 
-#### 4. 시술 관련 (2개)
+#### 4. 출고 관련 (2개)
+- **shipments**: 출고 기록 (조직 간 제품 이동)
+- **shipment_details**: 출고 상세 (출고되는 virtual_code 목록)
+
+#### 5. 시술 관련 (2개)
 - **treatment_records**: 시술 기록
 - **treatment_details**: 시술 상세 (사용된 virtual_code 목록)
 
-#### 5. 반품 관련 (2개)
+#### 6. 반품 관련 (2개)
 - **return_requests**: 반품 요청
 - **return_details**: 반품 상세 (반품할 virtual_code 목록)
 
-#### 6. 알림 (1개)
+#### 7. 알림 (1개)
 - **notification_messages**: 알림 메시지 (환자 인증/회수)
 
 ---
@@ -80,21 +84,26 @@ erDiagram
     organizations ||--o{ users : has
     organizations ||--o{ products : manufactures
     organizations ||--o{ manufacturer_settings : configures
-    
+
     products ||--o{ lots : has
     lots ||--o{ virtual_codes : generates
-    
+
     virtual_codes ||--o{ history : tracks
     virtual_codes ||--o{ treatment_details : used_in
     virtual_codes ||--o{ return_details : returned_in
-    
+    virtual_codes ||--o{ shipment_details : shipped_in
+
+    organizations ||--o{ shipments : sends
+    organizations ||--o{ shipments : receives
+    shipments ||--o{ shipment_details : contains
+
     organizations ||--o{ treatment_records : performs
     patients ||--o{ treatment_records : receives
     treatment_records ||--o{ treatment_details : contains
-    
+
     organizations ||--o{ return_requests : requests_or_receives
     return_requests ||--o{ return_details : contains
-    
+
     patients ||--o{ notification_messages : receives
 ```
 

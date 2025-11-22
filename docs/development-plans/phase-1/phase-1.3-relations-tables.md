@@ -251,6 +251,60 @@ COMMENT ON COLUMN notification_messages.type IS 'AUTHENTICATION: 인증 발급, 
 COMMENT ON COLUMN notification_messages.is_sent IS '발송 완료 여부';
 
 -- =============================================
+-- TABLE: shipments
+-- Description: 출고 기록 (조직 간 제품 이동)
+-- =============================================
+
+CREATE TABLE shipments (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  from_organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  to_organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  status TEXT NOT NULL CHECK (status IN ('PENDING', 'APPROVED', 'REJECTED', 'COMPLETED')) DEFAULT 'PENDING',
+  shipped_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  received_date DATE,
+  approved_at TIMESTAMPTZ,
+  rejected_at TIMESTAMPTZ,
+  reject_reason TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Indexes for shipments
+CREATE INDEX idx_shipments_from ON shipments(from_organization_id);
+CREATE INDEX idx_shipments_to ON shipments(to_organization_id);
+CREATE INDEX idx_shipments_status ON shipments(status);
+CREATE INDEX idx_shipments_shipped_at ON shipments(shipped_at);
+
+-- Comments
+COMMENT ON TABLE shipments IS '출고 기록 (조직 간 제품 이동 추적)';
+COMMENT ON COLUMN shipments.status IS 'PENDING: 승인 대기, APPROVED: 승인됨, REJECTED: 거부됨, COMPLETED: 완료 (병원 수령)';
+COMMENT ON COLUMN shipments.received_date IS '수령 확인 날짜 (병원 수령 시)';
+COMMENT ON COLUMN shipments.reject_reason IS '거부 사유 (status=REJECTED일 때)';
+
+-- =============================================
+-- TABLE: shipment_details
+-- Description: 출고 상세 (Virtual Code 단위 추적)
+-- =============================================
+
+CREATE TABLE shipment_details (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  shipment_id UUID NOT NULL REFERENCES shipments(id) ON DELETE CASCADE,
+  virtual_code_id UUID NOT NULL REFERENCES virtual_codes(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+  -- Ensure each virtual_code is shipped only once per shipment
+  CONSTRAINT uq_shipment_virtual_code UNIQUE(shipment_id, virtual_code_id)
+);
+
+-- Indexes for shipment_details
+CREATE INDEX idx_shipment_details_shipment ON shipment_details(shipment_id);
+CREATE INDEX idx_shipment_details_vc ON shipment_details(virtual_code_id);
+
+-- Comments
+COMMENT ON TABLE shipment_details IS '출고 상세 (출고되는 Virtual Code 목록)';
+COMMENT ON COLUMN shipment_details.virtual_code_id IS '출고되는 Virtual Code ID';
+
+-- =============================================
 -- FUNCTIONS: Business Logic Functions
 -- =============================================
 

@@ -65,7 +65,7 @@ additional_redirect_urls = ["http://localhost:5173"]
 
 ### 2. 데이터베이스 ERD 설계
 
-#### 2.1 핵심 엔티티 (13개 테이블)
+#### 2.1 핵심 엔티티 (15개 테이블)
 
 ```
 1. organizations (조직)
@@ -80,16 +80,20 @@ additional_redirect_urls = ["http://localhost:5173"]
 3. virtual_codes (가상 식별코드)
    ├── history (이력)
    ├── treatment_details (시술 상세)
-   └── return_details (반품 상세)
+   ├── return_details (반품 상세)
+   └── shipment_details (출고 상세)
 
 4. patients (환자)
    └── treatment_records (시술 기록)
        └── treatment_details (시술 상세)
 
-5. return_requests (반품 요청)
+5. shipments (출고 기록)
+   └── shipment_details (출고 상세)
+
+6. return_requests (반품 요청)
    └── return_details (반품 상세)
 
-6. notification_messages (알림 메시지)
+7. notification_messages (알림 메시지)
 ```
 
 #### 2.2 테이블 상세 정의
