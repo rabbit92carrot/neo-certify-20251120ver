@@ -59,6 +59,42 @@ Timezone: Asia/Seoul (대한민국)
 
 ---
 
+## 🔤 용어 일관성 원칙
+
+### 핵심 원칙
+1. **모든 용어는 `src/constants/terminology.ts`에서 관리**
+2. **PRD 용어가 최우선** (불일치 시 PRD 기준 따름)
+3. **DB 필드명은 영문, UI는 한글** (constants로 매핑)
+4. **하드코딩 금지** - 모든 텍스트는 상수 사용
+
+### 용어 매핑 규칙
+| 구분 | PRD 용어 | DB 필드 | UI 표시 | 영문 |
+|------|----------|---------|---------|------|
+| 제품 마스터 | 제품 종류 | products | 제품 종류 | Product Type |
+| 생산 단위 | Lot | lots | Lot | Lot |
+| 추적 코드 | 가상 식별코드 | virtual_codes | 가상 식별코드 | Virtual Code |
+| 조직 타입 | 제조사/유통사/병원 | MANUFACTURER/DISTRIBUTOR/HOSPITAL | 제조사/유통사/병원 | Manufacturer/Distributor/Hospital |
+
+### 개발 시 필수 확인사항
+```typescript
+// ✅ 올바른 사용
+import { TERMINOLOGY, getTerm } from '@/constants'
+<h1>{TERMINOLOGY.PAGE_TITLES.MANUFACTURER_DASHBOARD}</h1>
+<label>{getTerm('LABELS.REGISTER_PRODUCT')}</label>
+
+// ❌ 잘못된 사용 (하드코딩)
+<h1>제조사 대시보드</h1>  // 하드코딩 금지
+<label>제품 등록</label>   // 상수 사용 필수
+```
+
+### Phase별 용어 체크리스트
+각 Phase 문서에 용어 사용 체크리스트가 포함되어 있습니다:
+- [ ] 모든 UI 텍스트는 `@/constants/terminology.ts` 사용
+- [ ] 하드코딩된 한글/영문 없음
+- [ ] PRD 용어와 일치 확인
+
+---
+
 ## 📊 Phase별 개발 계획 요약
 
 ### Phase 0: 프로젝트 기반 구축 ✅
@@ -77,7 +113,7 @@ Timezone: Asia/Seoul (대한민국)
 
 ### Constants 시스템 빠른 참조
 
-**9개 Constants 파일 완성** (A+ 등급):
+**10개 Constants 파일 완성** (A+ 등급):
 
 | 파일 | 용도 | 주요 내용 | 상세 문서 |
 |------|------|-----------|----------|
@@ -85,9 +121,10 @@ Timezone: Asia/Seoul (대한민국)
 | `roles.ts` | 사용자 역할 및 권한 | 4개 역할 + 권한 매트릭스 | [Phase 0.5](phase-0/phase-0.5-constants-system.md) |
 | `routes.ts` | URL 경로 | 20+ 경로 (제조사/유통사/병원/관리자) | [Phase 0.5](phase-0/phase-0.5-constants-system.md) |
 | `messages.ts` | 에러/성공 메시지 | 30+ 템플릿 (변수 지원) | [Phase 0.5](phase-0/phase-0.5-constants-system.md) |
-| `validation.ts` | 정규식 및 제한값 | 10+ 규칙 (전화번호, 사업자등록번호 등) | [Phase 0.5](phase-0/phase-0.5-constants-system.md) |
+| `validation.ts` ⭐ | 검증 규칙 확장판 | 파일/시간/비즈니스 규칙 통합 | [Phase 0.5](phase-0/phase-0.5-constants-system.md) |
+| `terminology.ts` ⭐⭐ | 용어 통일 | 엔티티/액션/상태/라벨 한영 매핑 | [Phase 0.5](phase-0/phase-0.5-constants-system.md) |
 | `database.ts` ⭐ | DB 테이블/함수/RLS | 13 테이블, 7 함수, 30 RLS 정책 | [constants-database.md](phase-0/constants-database.md) |
-| `business-logic.ts` ⭐ | 비즈니스 규칙 | FIFO, Virtual Code, Recall, 제조사 기본값 | [constants-business-logic.md](phase-0/constants-business-logic.md) |
+| `business-logic.ts` ⭐ | 비즈니스 규칙 | FIFO, Virtual Code, Recall, 제조사 설정 | [constants-business-logic.md](phase-0/constants-business-logic.md) |
 | `locks.ts` ⭐ | 동시성 제어 | 3 Lock 타입, Timeout 설정 | [constants-locks.md](phase-0/constants-locks.md) |
 | `notifications.ts` ⭐ | 알림 템플릿 | 카카오톡 인증/회수 템플릿 (PRD 섹션 10) | [constants-notifications.md](phase-0/constants-notifications.md) |
 

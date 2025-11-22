@@ -283,27 +283,42 @@ export const formatMessage = (template: string, params: Record<string, string | 
 
 **src/constants/validation.ts**:
 ```typescript
-// 파일 크기 제한
-export const FILE_SIZE_LIMITS = {
-  BUSINESS_LICENSE: 10 * 1024 * 1024, // 10MB
+// 파일 제한 (PRD Section 6.1 Line 179)
+export const FILE_LIMITS = {
+  MAX_SIZE: 10 * 1024 * 1024, // 10MB
+  ALLOWED_TYPES: ['.pdf', '.jpg', '.jpeg', '.png'] as const,
+  ALLOWED_MIME_TYPES: [
+    'application/pdf',
+    'image/jpeg',
+    'image/jpg',
+    'image/png'
+  ] as const,
 } as const
 
-// 시간 제한
+// 구버전 호환성 (deprecated - FILE_LIMITS.MAX_SIZE 사용 권장)
+export const FILE_SIZE_LIMITS = {
+  BUSINESS_LICENSE: FILE_LIMITS.MAX_SIZE,
+} as const
+
+// 시간 제한 (PRD Section 15.4 Line 806)
 export const TIME_LIMITS = {
   RECALL_WINDOW: 24 * 60 * 60 * 1000, // 24시간 (밀리초)
+  RECALL_WINDOW_HOURS: 24, // 24시간
 } as const
 
-// 비밀번호 규칙
-export const PASSWORD_RULES = {
-  // MVP: 간단한 정책 (빠른 개발 및 테스트)
-  // 프로덕션: 강화된 정책 (Phase 8.4 보안 강화)
-  MIN_LENGTH: 6, // MVP: 6자 | 프로덕션: 8자
-  // 프로덕션 추가 규칙 (Phase 8.4):
-  // - 대문자 1개 이상
-  // - 소문자 1개 이상
-  // - 숫자 1개 이상
-  // - 특수문자 1개 이상
+// 비밀번호 규칙 (PRD Section 7.1 Line 356)
+export const PASSWORD_POLICY = {
+  MIN_LENGTH: 6, // MVP: 6자 (PRD 명시)
+  // 프로덕션 강화 (Phase 8.4):
+  // MIN_LENGTH: 8,
+  // REQUIRE_UPPERCASE: true,
+  // REQUIRE_LOWERCASE: true,
+  // REQUIRE_NUMBER: true,
+  // REQUIRE_SPECIAL: true,
 } as const
+
+// 비밀번호 규칙 (구버전 호환성)
+export const PASSWORD_RULES = PASSWORD_POLICY
 
 // 비밀번호 검증 정규식 (프로덕션용)
 // Phase 8.4에서 활성화
@@ -336,9 +351,16 @@ export const REGEX = {
   LOT_NUMBER_DEFAULT: /^ND\d{5}\d{6}$/,
 } as const
 
-// 허용 파일 확장자
+// 비즈니스 번호 검증
+export const BUSINESS_NUMBER = {
+  REGEX: REGEX.BUSINESS_NUMBER,
+  FORMAT: 'XXX-XX-XXXXX',
+  EXAMPLE: '123-45-67890',
+} as const
+
+// 허용 파일 확장자 (deprecated - FILE_LIMITS.ALLOWED_TYPES 사용)
 export const ALLOWED_FILE_TYPES = {
-  BUSINESS_LICENSE: ['.pdf', '.jpg', '.jpeg', '.png'],
+  BUSINESS_LICENSE: FILE_LIMITS.ALLOWED_TYPES,
 } as const
 
 // 페이지네이션
@@ -353,7 +375,7 @@ export const QUANTITY_LIMITS = {
   MAX: 1000000,
 } as const
 
-// Lot 설정 제한
+// Lot 설정 제한 (PRD Section 6.1 Lines 190-201)
 export const LOT_SETTINGS = {
   MODEL_DIGITS: {
     MIN: 3,
@@ -366,15 +388,244 @@ export const LOT_SETTINGS = {
   },
 } as const
 
+// 비즈니스 규칙
+export const BUSINESS = {
+  EXPIRY_WARNING_DAYS: 30, // 유효기간 경고 일수
+  VIRTUAL_CODE_LENGTH: 12, // Virtual Code 길이
+  RECALL_REASON_MIN_LENGTH: 5, // 리콜 사유 최소 길이
+} as const
+
 // 날짜 형식
 export const DATE_FORMATS = {
   DISPLAY: 'yyyy-MM-dd HH:mm',
   DATE_ONLY: 'yyyy-MM-dd',
   LOT_DATE_DEFAULT: 'yyMMdd',
 } as const
+
+// 검증 헬퍼 (validation.ts 하단에 추가)
+export const VALIDATION = {
+  ...FILE_LIMITS,
+  ...TIME_LIMITS,
+  ...PASSWORD_POLICY,
+  ...BUSINESS,
+  ...PAGINATION,
+  ...QUANTITY_LIMITS,
+  ...DATE_FORMATS,
+  // 통합 접근을 위한 헬퍼
+  VIRTUAL_CODE_LENGTH: BUSINESS.VIRTUAL_CODE_LENGTH,
+  EXPIRY_WARNING_DAYS: BUSINESS.EXPIRY_WARNING_DAYS,
+  RETURN_REASON_MIN_LENGTH: BUSINESS.RECALL_REASON_MIN_LENGTH,
+  DEFAULT_PAGE_SIZE: PAGINATION.DEFAULT_PAGE_SIZE,
+} as const
 ```
 
-### 6. 데이터베이스 상수 (database.ts)
+### 6. 용어 통일 상수 (terminology.ts) ⭐ **신규 추가**
+
+**src/constants/terminology.ts**:
+```typescript
+/**
+ * 용어 통일 상수 - SSOT for all terminology
+ * PRD 용어를 기준으로 DB, UI, 영문 매핑
+ */
+
+// 엔티티명 (PRD 기준)
+export const TERMINOLOGY = {
+  // 핵심 엔티티
+  ENTITIES: {
+    PRODUCT: {
+      ko: '제품 종류',  // PRD Section 6.1 Line 223
+      en: 'Product Type',
+      db: 'products',
+      description: '제품 마스터 데이터 (제품명, 제조사 등)'
+    },
+    LOT: {
+      ko: 'Lot',  // PRD에서 Lot 사용 (배치 X)
+      en: 'Lot',
+      db: 'lots',
+      description: '생산 단위 (실제 생산된 제품 묶음)'
+    },
+    VIRTUAL_CODE: {
+      ko: '가상 식별코드',  // PRD Section 5.2
+      en: 'Virtual Code',
+      db: 'virtual_codes',
+      description: '개별 제품 추적 코드 (12자리)'
+    },
+    ORGANIZATION: {
+      ko: '조직',
+      en: 'Organization',
+      db: 'organizations'
+    },
+    PATIENT: {
+      ko: '환자',
+      en: 'Patient',
+      db: 'patients'
+    },
+    TREATMENT: {
+      ko: '시술',
+      en: 'Treatment',
+      db: 'treatment_records'
+    },
+  },
+
+  // 조직 타입
+  ORGANIZATION_TYPES: {
+    MANUFACTURER: { ko: '제조사', en: 'Manufacturer', db: 'MANUFACTURER' },
+    DISTRIBUTOR: { ko: '유통사', en: 'Distributor', db: 'DISTRIBUTOR' },
+    HOSPITAL: { ko: '병원', en: 'Hospital', db: 'HOSPITAL' },
+  },
+
+  // 액션/동작 (History에서 사용)
+  ACTIONS: {
+    PRODUCTION: {
+      ko: '생산',
+      en: 'Production',
+      past: '생산됨',
+      db: 'PRODUCTION'
+    },
+    SHIPMENT: {
+      ko: '출고',
+      en: 'Shipment',
+      past: '출고됨',
+      db: 'SHIPMENT'
+    },
+    RECEIVE: {
+      ko: '입고',
+      en: 'Receive',
+      past: '입고됨',
+      db: 'RECEIVE'
+    },
+    TREATMENT: {
+      ko: '시술',
+      en: 'Treatment',
+      past: '시술됨',
+      db: 'TREATMENT'
+    },
+    RECALL: {
+      ko: '리콜',  // PRD: 회수보다 리콜 선호
+      en: 'Recall',
+      past: '리콜됨',
+      db: 'RECALL'
+    },
+    RETURN: {
+      ko: '반품',
+      en: 'Return',
+      past: '반품됨',
+      db: 'RETURN'
+    },
+    DISPOSE: {
+      ko: '폐기',
+      en: 'Dispose',
+      past: '폐기됨',
+      db: 'DISPOSE'
+    },
+  },
+
+  // 상태값
+  STATUSES: {
+    // Virtual Code 상태
+    IN_STOCK: { ko: '재고', en: 'In Stock', db: 'IN_STOCK' },
+    PENDING: { ko: '입고 대기', en: 'Pending', db: 'PENDING' },  // PRD Section 7.2
+    USED: { ko: '사용됨', en: 'Used', db: 'USED' },
+    DISPOSED: { ko: '폐기됨', en: 'Disposed', db: 'DISPOSED' },
+
+    // Organization 상태
+    PENDING_APPROVAL: { ko: '승인 대기', en: 'Pending Approval', db: 'PENDING_APPROVAL' },
+    ACTIVE: { ko: '활성', en: 'Active', db: 'ACTIVE' },
+    INACTIVE: { ko: '비활성', en: 'Inactive', db: 'INACTIVE' },
+
+    // Return Request 상태
+    APPROVED: { ko: '승인됨', en: 'Approved', db: 'APPROVED' },
+    REJECTED: { ko: '거부됨', en: 'Rejected', db: 'REJECTED' },
+  },
+
+  // UI 라벨 (자주 사용되는 표현)
+  LABELS: {
+    // 제품 관련
+    REGISTER_PRODUCT: '제품 등록',  // NOT '제품 종류 등록'
+    SELECT_PRODUCT: '제품 선택',
+    PRODUCT_LIST: '제품 목록',
+    PRODUCT_INFO: '제품 정보',
+
+    // Lot 관련
+    LOT_PRODUCTION: 'Lot 생산',  // NOT '배치 생산'
+    SELECT_LOT: 'Lot 선택',
+    LOT_NUMBER: 'Lot 번호',
+
+    // 출고/입고
+    CREATE_SHIPMENT: '출고 등록',
+    PENDING_ACCEPTANCE: '입고 대기',  // Pending 상태 표시
+    ACCEPT_SHIPMENT: '입고 승인',
+    REJECT_SHIPMENT: '입고 거부',
+
+    // 시술/리콜
+    REGISTER_TREATMENT: '시술 등록',
+    TREATMENT_HISTORY: '시술 내역',
+    REQUEST_RECALL: '리콜 요청',
+    RECALL_WITHIN_24H: '24시간 내 리콜 가능',
+
+    // 공통
+    SAVE: '저장',
+    CANCEL: '취소',
+    CONFIRM: '확인',
+    DELETE: '삭제',
+    SEARCH: '검색',
+    FILTER: '필터',
+    EXPORT: '내보내기',
+    IMPORT: '가져오기',
+  },
+
+  // 페이지 제목
+  PAGE_TITLES: {
+    // Manufacturer
+    MANUFACTURER_DASHBOARD: '제조사 대시보드',
+    PRODUCT_MANAGEMENT: '제품 관리',
+    LOT_PRODUCTION: 'Lot 생산',
+    SHIPMENT_MANAGEMENT: '출고 관리',
+
+    // Distributor
+    DISTRIBUTOR_DASHBOARD: '유통사 대시보드',
+    RECEIVING_MANAGEMENT: '입고 관리',
+    PENDING_SHIPMENTS: '입고 대기 목록',
+
+    // Hospital
+    HOSPITAL_DASHBOARD: '병원 대시보드',
+    TREATMENT_REGISTRATION: '시술 등록',
+    PATIENT_MANAGEMENT: '환자 관리',
+
+    // Admin
+    ADMIN_DASHBOARD: '관리자 대시보드',
+    ORGANIZATION_APPROVAL: '조직 승인',
+    SYSTEM_HISTORY: '시스템 이력',
+  },
+} as const
+
+// 용어 조회 헬퍼 함수
+export function getTerm(path: string, language: 'ko' | 'en' | 'db' = 'ko'): string {
+  const paths = path.split('.')
+  let current: any = TERMINOLOGY
+
+  for (const p of paths) {
+    current = current[p]
+    if (!current) return path // 경로 없으면 원본 반환
+  }
+
+  return current[language] || current.ko || path
+}
+
+// 사용 예시:
+// getTerm('ENTITIES.PRODUCT', 'ko') => '제품 종류'
+// getTerm('ACTIONS.SHIPMENT', 'past') => '출고됨'
+// getTerm('LABELS.REGISTER_PRODUCT') => '제품 등록'
+
+// TypeScript 타입 정의
+export type EntityType = keyof typeof TERMINOLOGY.ENTITIES
+export type ActionType = keyof typeof TERMINOLOGY.ACTIONS
+export type StatusType = keyof typeof TERMINOLOGY.STATUSES
+export type LabelType = keyof typeof TERMINOLOGY.LABELS
+export type PageTitleType = keyof typeof TERMINOLOGY.PAGE_TITLES
+```
+
+### 7. 데이터베이스 상수 (database.ts)
 
 **src/constants/database.ts** - **상세 문서**: [constants-database.md](./constants-database.md)
 
@@ -456,15 +707,34 @@ export const LOT_NUMBER_FORMAT = {
   generate: (prefix, modelNumber, date) => { ... },
 } as const
 
-// 제조사 설정 기본값
+// 제조사 설정 기본값 (PRD Section 6.1 Lines 190-201)
 export const MANUFACTURER_SETTINGS_DEFAULTS = {
-  LOT_PREFIX: 'ND',
-  LOT_MODEL_DIGITS: 5,
-  LOT_DATE_FORMAT: 'yymmdd',
-  EXPIRY_MONTHS: 24,
-  EXPIRY_STEP: 6,
-  EXPIRY_MIN_MONTHS: 6,
-  EXPIRY_MAX_MONTHS: 36,
+  LOT_PREFIX: 'ND',  // 기본 Lot 접두사
+  LOT_MODEL_DIGITS: 5,  // 모델 번호 자릿수
+  LOT_DATE_FORMAT: 'yymmdd',  // 날짜 형식
+  EXPIRY_MONTHS: 24,  // 기본 유효기간 (개월)
+  EXPIRY_STEP: 6,  // 유효기간 증감 단위
+  EXPIRY_MIN_MONTHS: 6,  // 최소 유효기간
+  EXPIRY_MAX_MONTHS: 36,  // 최대 유효기간
+} as const
+
+// 제조사 설정 (manufacturer_settings 테이블)
+export const MANUFACTURER_SETTINGS = {
+  DEFAULTS: MANUFACTURER_SETTINGS_DEFAULTS,
+  // Lot 번호 형식: {prefix}{modelDigits}{dateFormat}
+  // 예: ND + 12345 + 250120 = ND12345250120
+  LOT_FORMAT: {
+    PREFIX_MIN_LENGTH: 1,
+    PREFIX_MAX_LENGTH: 5,
+    MODEL_DIGITS_MIN: 3,
+    MODEL_DIGITS_MAX: 10,
+    DATE_FORMATS: ['yymmdd', 'yyyymmdd', 'yymm'] as const,
+  },
+  // 유효기간 설정
+  EXPIRY: {
+    MONTHS_OPTIONS: [6, 12, 18, 24, 30, 36] as const,  // 선택 가능 옵션
+    STEP: 6,  // 6개월 단위
+  },
 } as const
 
 // 사용기한 검증 함수
@@ -523,6 +793,9 @@ export * from './messages'
 // Validation
 export * from './validation'
 
+// Terminology ⭐ 신규
+export * from './terminology'
+
 // Database
 export * from './database'
 
@@ -541,9 +814,28 @@ export { VIRTUAL_CODE_STATUS_LABELS, ORGANIZATION_STATUS_LABELS, ORGANIZATION_TY
 export { USER_ROLES } from './roles'
 export { ROUTES } from './routes'
 export { ERROR_MESSAGES, SUCCESS_MESSAGES, CONFIRM_MESSAGES, formatMessage } from './messages'
-export { REGEX, FILE_SIZE_LIMITS, TIME_LIMITS, PASSWORD_RULES } from './validation'
+export {
+  REGEX,
+  FILE_LIMITS,  // 신규
+  FILE_SIZE_LIMITS,  // deprecated
+  TIME_LIMITS,
+  PASSWORD_POLICY,  // 신규
+  PASSWORD_RULES,  // deprecated alias
+  BUSINESS,  // 신규
+  VALIDATION,  // 신규 통합 헬퍼
+  PAGINATION,
+  BUSINESS_NUMBER,  // 신규
+} from './validation'
+export { TERMINOLOGY, getTerm } from './terminology'  // 신규
 export { DATABASE_CONSTANTS, DATABASE_FUNCTIONS } from './database'
-export { FIFO_SORT, VIRTUAL_CODE_FORMAT, PHONE_FORMAT, RECALL_RULES } from './business-logic'
+export {
+  FIFO_SORT,
+  VIRTUAL_CODE_FORMAT,
+  PHONE_FORMAT,
+  RECALL_RULES,
+  MANUFACTURER_SETTINGS,  // 신규
+  MANUFACTURER_SETTINGS_DEFAULTS,  // 신규
+} from './business-logic'
 export { LOCK_CONFIG, LOCK_TYPES, generateLockKey } from './locks'
 export { NOTIFICATION_TYPE, KAKAOTALK_TEMPLATES, RECALL_REASONS, createNotificationMessage, formatNotification } from './notifications'
 ```
@@ -749,12 +1041,13 @@ describe('Message Formatting', () => {
 - `src/constants/roles.ts`
 - `src/constants/routes.ts`
 - `src/constants/messages.ts`
-- `src/constants/validation.ts`
+- `src/constants/validation.ts` ⭐ **확장됨**
+- `src/constants/terminology.ts` ⭐⭐ **신규 - 용어 통일**
 - `src/constants/database.ts` ⭐ **신규**
-- `src/constants/business-logic.ts` ⭐ **신규**
+- `src/constants/business-logic.ts` ⭐ **확장됨**
 - `src/constants/locks.ts` ⭐ **신규**
 - `src/constants/notifications.ts` ⭐ **신규**
-- `src/constants/index.ts`
+- `src/constants/index.ts` ⭐ **업데이트됨**
 - `src/constants/validation.test.ts`
 - `src/constants/messages.test.ts`
 
