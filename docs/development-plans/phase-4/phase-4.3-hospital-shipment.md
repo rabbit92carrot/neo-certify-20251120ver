@@ -466,6 +466,132 @@ console.log(virtualCodes) // [{ id, code, lot_id, sequence_number }, ...]
 
 ---
 
+## 🔍 FIFO 알고리즘 상세 명세 (PRD Section 15.1)
+
+### 핵심 원칙
+
+**PRD 요구사항**:
+- 기본적으로 모든 출고는 FIFO(First In First Out) 방식
+- 제조사만 예외적으로 특정 Lot 선택 가능
+- 유통사/병원은 반드시 FIFO 적용
+
+### FIFO 정렬 규칙 (4단계)
+
+**src/constants/business-logic.ts**:
+```typescript
+export const FIFO_SORT = {
+  PRIMARY: {
+    FIELD: 'manufacture_date',  // 1차: 제조일 (오래된 것 우선)
+    ORDER: 'ASC'
+  },
+  SECONDARY: {
+    FIELD: 'expiry_date',      // 2차: 유효기간 (만료 임박 우선)
+    ORDER: 'ASC'
+  },
+  TERTIARY: {
+    FIELD: 'sequence_number',  // 3차: Lot 내 시퀀스 번호
+    ORDER: 'ASC'
+  },
+  FALLBACK: {
+    FIELD: 'created_at',       // 4차: 시스템 등록 시간
+    ORDER: 'ASC'
+  },
+} as const
+```
+
+### 구현 방식 비교
+
+#### Option A: PostgreSQL RPC 함수 (권장)
+```sql
+-- 데이터베이스 레벨에서 FIFO 정렬 보장
+ORDER BY
+  l.manufacture_date ASC,
+  l.expiry_date ASC,
+  vc.sequence_number ASC,
+  vc.created_at ASC
+```
+
+**장점**:
+- ✅ 데이터베이스 레벨에서 완전한 FIFO 보장
+- ✅ 성능 최적화 (인덱스 활용)
+- ✅ 일관성 보장
+
+**단점**:
+- ⚠️ RPC 함수 관리 복잡도
+
+#### Option B: Application 레벨 정렬
+```typescript
+// TypeScript에서 정렬
+const sortedCodes = virtualCodes.sort((a, b) => {
+  // 1차: manufacture_date
+  if (a.lot.manufacture_date !== b.lot.manufacture_date) {
+    return new Date(a.lot.manufacture_date).getTime() -
+           new Date(b.lot.manufacture_date).getTime()
+  }
+  // 2차: expiry_date
+  if (a.lot.expiry_date !== b.lot.expiry_date) {
+    return new Date(a.lot.expiry_date).getTime() -
+           new Date(b.lot.expiry_date).getTime()
+  }
+  // 3차: sequence_number
+  if (a.sequence_number !== b.sequence_number) {
+    return a.sequence_number - b.sequence_number
+  }
+  // 4차: created_at
+  return new Date(a.created_at).getTime() -
+         new Date(b.created_at).getTime()
+})
+```
+
+**장점**:
+- ✅ 구현 간단
+- ✅ 디버깅 용이
+
+**단점**:
+- ⚠️ 성능 이슈 (대량 데이터)
+- ⚠️ 메모리 사용량 증가
+
+### 예외 사항: 제조사 Lot 선택
+
+**PRD Section 15.1**: "제조사는 FIFO 외에 특정 Lot 선택 가능"
+
+```typescript
+// 제조사용 출고 옵션
+interface ShipmentOptions {
+  method: 'FIFO' | 'LOT_SELECT'  // 제조사만 LOT_SELECT 가능
+  selectedLotId?: string          // LOT_SELECT 시 필수
+}
+
+// 역할별 권한 체크
+const canSelectLot = (userRole: string) => {
+  return userRole === 'MANUFACTURER'
+}
+```
+
+### 테스트 시나리오
+
+```typescript
+describe('FIFO Algorithm', () => {
+  it('should prioritize by manufacture_date first', () => {
+    // 제조일 기준 정렬 검증
+  })
+
+  it('should prioritize by expiry_date when manufacture_date is same', () => {
+    // 유효기간 기준 정렬 검증
+  })
+
+  it('should use sequence_number for same lot', () => {
+    // 시퀀스 번호 정렬 검증
+  })
+
+  it('should prevent non-manufacturers from lot selection', () => {
+    // 유통사/병원 Lot 선택 차단 검증
+  })
+})
+```
+
+---
+
 ## 🔄 Git Commit Message
 
 ```bash
