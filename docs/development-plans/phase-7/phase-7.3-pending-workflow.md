@@ -244,11 +244,12 @@ export function canRecall(approvedAt: string): boolean {
   // 2. 밀리초 단위 차이 계산
   const diffMs = now - approvedTime
 
-  // 3. 24시간 = 86,400,000ms
-  const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000
+  // 3. 24시간 제한 (상수 사용)
+  // src/constants/validation.ts의 TIME_LIMITS.RECALL_WINDOW 사용
+  import { TIME_LIMITS } from '@/constants'
 
   // 4. 정확히 24시간 이상 경과 시 false (경계 케이스: 24:00:00은 불가)
-  return diffMs < TWENTY_FOUR_HOURS_MS
+  return diffMs < TIME_LIMITS.RECALL_WINDOW
 }
 
 /**
@@ -266,8 +267,8 @@ export function getHoursLeft(approvedAt: string): number {
   const now = Date.now()
   const diffMs = now - approvedTime
 
-  const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000
-  const remainingMs = TWENTY_FOUR_HOURS_MS - diffMs
+  // TIME_LIMITS.RECALL_WINDOW 사용 (24시간)
+  const remainingMs = TIME_LIMITS.RECALL_WINDOW - diffMs
 
   // 남은 시간을 시간 단위로 변환 (소수점 첫째자리)
   const hoursLeft = Math.max(0, remainingMs / (1000 * 60 * 60))
@@ -287,7 +288,7 @@ export function getHoursLeft(approvedAt: string): number {
  */
 export function getRecallDeadline(approvedAt: string): string {
   const approvedTime = new Date(approvedAt).getTime()
-  const deadline = new Date(approvedTime + 24 * 60 * 60 * 1000)
+  const deadline = new Date(approvedTime + TIME_LIMITS.RECALL_WINDOW)
 
   return deadline.toISOString()
 }

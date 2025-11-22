@@ -344,7 +344,7 @@ DECLARE
   v_treated_at TIMESTAMPTZ;
   v_patient_phone TEXT;
   v_recalled_count INT := 0;
-  v_time_limit INTERVAL := '24 hours';
+  v_time_limit INTERVAL := '24 hours'; -- TODO: 상수화 필요 (TIME_LIMITS.RECALL_WINDOW_HOURS)
 BEGIN
   -- 각 가상 코드에 대해 회수 처리
   FOREACH v_code_id IN ARRAY p_virtual_code_ids
@@ -439,9 +439,12 @@ $$ LANGUAGE plpgsql;
 **파일 경로**: `src/constants/business-logic.ts` (확인/추가)
 
 ```typescript
+// src/constants/business-logic.ts에서 import
+import { TIME_LIMITS } from '@/constants'
+
 export const RECALL_RULES = {
-  WINDOW_HOURS: 24,
-  WINDOW_MS: 24 * 60 * 60 * 1000,
+  WINDOW_HOURS: TIME_LIMITS.RECALL_WINDOW_HOURS,
+  WINDOW_MS: TIME_LIMITS.RECALL_WINDOW,
 
   /**
    * 회수 가능 여부 확인
@@ -452,7 +455,7 @@ export const RECALL_RULES = {
     const treated = new Date(treatmentDate).getTime()
     const now = Date.now()
     const elapsed = now - treated
-    return elapsed <= RECALL_RULES.WINDOW_MS
+    return elapsed <= TIME_LIMITS.RECALL_WINDOW
   },
 } as const
 ```

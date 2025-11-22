@@ -479,8 +479,11 @@ export const supabase = createClient<Database>(
   }
 )
 
+// Supabase 에러 타입 (PostgrestError from @supabase/supabase-js)
+import { PostgrestError } from '@supabase/supabase-js'
+
 // Supabase 에러 헬퍼
-export function handleSupabaseError(error: any, context: string) {
+export function handleSupabaseError(error: PostgrestError | Error | null, context: string) {
   if (!error) return
 
   console.error(`[Supabase Error] ${context}:`, error)
@@ -488,8 +491,8 @@ export function handleSupabaseError(error: any, context: string) {
   // Breadcrumb 추가
   addBreadcrumb(`Supabase Error: ${context}`, 'supabase', 'error', {
     errorMessage: error.message,
-    errorCode: error.code,
-    errorDetails: error.details,
+    errorCode: 'code' in error ? error.code : undefined,
+    errorDetails: 'details' in error ? error.details : undefined,
   })
 
   // Sentry에 에러 전송

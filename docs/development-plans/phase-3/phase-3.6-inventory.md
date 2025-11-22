@@ -31,9 +31,13 @@
 
 이 Phase에서 사용하는 모든 constants를 아래에 정의합니다.
 
-### src/constants/inventory.ts (신규)
+### src/constants/business.ts (추가)
 ```typescript
-export const EXPIRY_WARNING_DAYS = 30 as const
+// src/constants/validation.ts에서 정의된 BUSINESS 상수 사용
+import { BUSINESS } from '@/constants'
+
+// 별칭으로 export (구버전 호환성)
+export const EXPIRY_WARNING_DAYS = BUSINESS.EXPIRY_WARNING_DAYS // 30
 ```
 
 ### src/constants/messages.ts
@@ -304,7 +308,7 @@ describe('InventoryPage', () => {
 feat(manufacturer): add inventory page with expiry alerts
 
 - Implement InventoryPage with lot-level inventory view
-- Add expiry date alerts (30 days warning)
+- Add expiry date alerts (BUSINESS.EXPIRY_WARNING_DAYS configurable)
 - Add inventory summary statistics
 - Add product/lot search filter
 

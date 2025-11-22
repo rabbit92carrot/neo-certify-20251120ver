@@ -887,13 +887,17 @@ export const queryClient = new QueryClient({
 ```typescript
 import { sanitizeFilename } from './sanitize'
 
+// src/constants/validation.ts에서 import
+import { FILE_LIMITS } from '@/constants'
+
 const ALLOWED_FILE_TYPES = {
   IMAGE: ['image/jpeg', 'image/png', 'image/webp'],
   PDF: ['application/pdf'],
   EXCEL: ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'text/csv'],
 } as const
 
-const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
+// FILE_LIMITS.MAX_SIZE 사용 (10MB)
+const MAX_FILE_SIZE = FILE_LIMITS.MAX_SIZE
 
 interface FileValidationResult {
   valid: boolean
