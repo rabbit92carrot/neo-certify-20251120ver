@@ -96,6 +96,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { SUCCESS_MESSAGES, ERROR_MESSAGES } from '@/constants/messages'
 import { VALIDATION } from '@/constants/validation'
+import { RETURN_STATUS } from '@/constants/status'
+import type { ReturnStatus } from '@/constants/status'
 import { format } from 'date-fns'
 
 type ReturnAction = 'RESTORE' | 'DISPOSE'
@@ -110,7 +112,7 @@ interface ReturnRequest {
   requester_id: string
   receiver_id: string
   reason: string
-  status: 'PENDING' | 'APPROVED' | 'REJECTED'
+  status: ReturnStatus // Using imported type from constants
   action?: ReturnAction
   requested_at: string
   processed_by?: string
@@ -236,7 +238,7 @@ export function DistributorReturnsPage() {
       const { error: updateError } = await supabase
         .from('return_requests')
         .update({
-          status: 'APPROVED',
+          status: RETURN_STATUS.APPROVED,
           action: action,
           processed_by: user!.id,
           processed_at: new Date().toISOString(),
@@ -329,7 +331,7 @@ export function DistributorReturnsPage() {
       const { error } = await supabase
         .from('return_requests')
         .update({
-          status: 'REJECTED',
+          status: RETURN_STATUS.REJECTED,
           reject_reason: reason.trim(),
           processed_by: user!.id,
           processed_at: new Date().toISOString(),
@@ -366,8 +368,8 @@ export function DistributorReturnsPage() {
     setRejectReason('')
   }
 
-  const pendingRequests = returnRequests?.filter((r) => r.status === 'PENDING') || []
-  const processedRequests = returnRequests?.filter((r) => r.status !== 'PENDING') || []
+  const pendingRequests = returnRequests?.filter((r) => r.status === RETURN_STATUS.PENDING) || []
+  const processedRequests = returnRequests?.filter((r) => r.status !== RETURN_STATUS.PENDING) || []
 
   return (
     <div className="space-y-6">
@@ -507,16 +509,16 @@ export function DistributorReturnsPage() {
                         <TableCell>
                           <Badge
                             className={
-                              request.status === 'APPROVED'
+                              request.status === RETURN_STATUS.APPROVED
                                 ? 'bg-green-100 text-green-800'
                                 : 'bg-red-100 text-red-800'
                             }
                           >
-                            {request.status === 'APPROVED' ? '승인됨' : '거부됨'}
+                            {request.status === RETURN_STATUS.APPROVED ? '승인됨' : '거부됨'}
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          {request.status === 'APPROVED' && request.action ? (
+                          {request.status === RETURN_STATUS.APPROVED && request.action ? (
                             <Badge variant="secondary">
                               {request.action === 'RESTORE' ? '재고 복원' : '폐기'}
                             </Badge>

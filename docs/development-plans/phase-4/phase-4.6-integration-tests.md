@@ -92,6 +92,7 @@ describe('Supply Chain Workflow Integration Test', () => {
 
 ```typescript
 import { describe, it, expect } from 'vitest'
+import { SHIPMENT_STATUS, VIRTUAL_CODE_STATUS } from '@/constants/status'
 
 describe('Multi-tier Distribution Integration Test', () => {
   it('유통사→유통사→병원 다단계 유통이 정상 동작해야 한다', async () => {
@@ -104,7 +105,7 @@ describe('Multi-tier Distribution Integration Test', () => {
       virtualCodeIds: selectedVirtualCodes,  // N개 Virtual Code
     })
 
-    expect(shipmentToA.status).toBe('PENDING')
+    expect(shipmentToA.status).toBe(SHIPMENT_STATUS.PENDING)
 
     // 2. Virtual Code 상태 확인 (Phase 4 README Option 2)
     const { data: virtualCodes } = await supabase
@@ -113,7 +114,7 @@ describe('Multi-tier Distribution Integration Test', () => {
       .in('id', selectedVirtualCodes)
 
     expect(virtualCodes.every(vc =>
-      vc.status === 'PENDING' &&
+      vc.status === VIRTUAL_CODE_STATUS.PENDING &&
       vc.owner_id === distributorAId &&  // ⭐ 즉시 소유권 이전
       vc.pending_to === distributorAId
     )).toBe(true)
@@ -139,7 +140,7 @@ describe('Multi-tier Distribution Integration Test', () => {
       virtualCodeIds: selectedVirtualCodes,
     })
 
-    expect(shipmentToB.status).toBe('PENDING')
+    expect(shipmentToB.status).toBe(SHIPMENT_STATUS.PENDING)
 
     // 5. Distributor B accepts shipment
     await acceptShipment(shipmentToB.id)
@@ -161,7 +162,7 @@ describe('Multi-tier Distribution Integration Test', () => {
       virtualCodeIds: selectedVirtualCodes,
     })
 
-    expect(shipmentToHospital.status).toBe('COMPLETED')  // ⭐ 병원은 Pending 없음
+    expect(shipmentToHospital.status).toBe(SHIPMENT_STATUS.COMPLETED)  // ⭐ 병원은 Pending 없음
     expect(shipmentToHospital.received_date).toBeTruthy()
 
     // 7. Virtual Code 최종 상태 확인
@@ -203,7 +204,7 @@ describe('Multi-tier Distribution Integration Test', () => {
       .in('id', virtualCodeIds)
 
     expect(pendingCodes.every(vc =>
-      vc.status === 'PENDING' &&
+      vc.status === VIRTUAL_CODE_STATUS.PENDING &&
       vc.owner_id === distributorBId &&  // Option 2: 즉시 이전
       vc.pending_to === distributorBId
     )).toBe(true)

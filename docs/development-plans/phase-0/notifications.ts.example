@@ -1,0 +1,240 @@
+/**
+ * Notifications Constants
+ *
+ * SSOT for all notification templates and messages
+ * PRD Reference: Section 10 (Notification System)
+ */
+
+// Notification Types
+export const NOTIFICATION_TYPE = {
+  AUTHENTICATION: 'AUTHENTICATION',
+  RECALL: 'RECALL',
+  SHIPMENT: 'SHIPMENT',
+  RETURN: 'RETURN',
+  EXPIRY_WARNING: 'EXPIRY_WARNING',
+  SYSTEM: 'SYSTEM',
+} as const
+
+export type NotificationType = typeof NOTIFICATION_TYPE[keyof typeof NOTIFICATION_TYPE]
+
+// Notification Priority
+export const NOTIFICATION_PRIORITY = {
+  LOW: 'LOW',
+  MEDIUM: 'MEDIUM',
+  HIGH: 'HIGH',
+  URGENT: 'URGENT',
+} as const
+
+export type NotificationPriority = typeof NOTIFICATION_PRIORITY[keyof typeof NOTIFICATION_PRIORITY]
+
+// Notification Templates
+export const NOTIFICATION_TEMPLATES = {
+  // Authentication Notifications
+  [NOTIFICATION_TYPE.AUTHENTICATION]: {
+    ISSUED: {
+      title: '인증서 발급 완료',
+      body: (productName: string, lotNumber: string) =>
+        `${productName} (Lot: ${lotNumber}) 인증서가 발급되었습니다.`,
+      priority: NOTIFICATION_PRIORITY.MEDIUM,
+    },
+    VERIFIED: {
+      title: '인증서 검증 완료',
+      body: (virtualCode: string) =>
+        `Virtual Code ${virtualCode}의 진위가 확인되었습니다.`,
+      priority: NOTIFICATION_PRIORITY.LOW,
+    },
+  },
+
+  // Recall Notifications
+  [NOTIFICATION_TYPE.RECALL]: {
+    INITIATED: {
+      title: '긴급 회수 알림',
+      body: (productName: string, lotNumber: string, reason: string) =>
+        `${productName} (Lot: ${lotNumber}) 제품이 회수됩니다.\n사유: ${reason}`,
+      priority: NOTIFICATION_PRIORITY.URGENT,
+    },
+    COMPLETED: {
+      title: '회수 완료',
+      body: (productName: string, quantity: number) =>
+        `${productName} ${quantity}개 회수가 완료되었습니다.`,
+      priority: NOTIFICATION_PRIORITY.HIGH,
+    },
+  },
+
+  // Shipment Notifications
+  [NOTIFICATION_TYPE.SHIPMENT]: {
+    PENDING: {
+      title: '입고 승인 대기',
+      body: (fromOrg: string, quantity: number) =>
+        `${fromOrg}에서 ${quantity}개 제품이 입고 대기 중입니다.`,
+      priority: NOTIFICATION_PRIORITY.MEDIUM,
+    },
+    COMPLETED: {
+      title: '입고 완료',
+      body: (fromOrg: string, productName: string, quantity: number) =>
+        `${fromOrg}에서 ${productName} ${quantity}개가 입고되었습니다.`,
+      priority: NOTIFICATION_PRIORITY.MEDIUM,
+    },
+    REJECTED: {
+      title: '입고 거부',
+      body: (toOrg: string, reason: string) =>
+        `${toOrg}에서 입고를 거부했습니다.\n사유: ${reason}`,
+      priority: NOTIFICATION_PRIORITY.HIGH,
+    },
+  },
+
+  // Return Notifications
+  [NOTIFICATION_TYPE.RETURN]: {
+    REQUESTED: {
+      title: '반품 요청',
+      body: (fromOrg: string, productName: string, quantity: number) =>
+        `${fromOrg}에서 ${productName} ${quantity}개 반품을 요청했습니다.`,
+      priority: NOTIFICATION_PRIORITY.MEDIUM,
+    },
+    APPROVED: {
+      title: '반품 승인',
+      body: (productName: string, action: 'RESTORE' | 'DISPOSE') =>
+        `${productName} 반품이 승인되었습니다. (${action === 'RESTORE' ? '재고 복원' : '폐기'})`,
+      priority: NOTIFICATION_PRIORITY.MEDIUM,
+    },
+    REJECTED: {
+      title: '반품 거부',
+      body: (reason: string) =>
+        `반품이 거부되었습니다.\n사유: ${reason}`,
+      priority: NOTIFICATION_PRIORITY.MEDIUM,
+    },
+  },
+
+  // Expiry Notifications
+  [NOTIFICATION_TYPE.EXPIRY_WARNING]: {
+    WARNING_30: {
+      title: '유효기간 임박 알림',
+      body: (productName: string, lotNumber: string, daysRemaining: number) =>
+        `${productName} (Lot: ${lotNumber})의 유효기간이 ${daysRemaining}일 남았습니다.`,
+      priority: NOTIFICATION_PRIORITY.HIGH,
+    },
+    WARNING_7: {
+      title: '유효기간 긴급 알림',
+      body: (productName: string, lotNumber: string, daysRemaining: number) =>
+        `⚠️ ${productName} (Lot: ${lotNumber})의 유효기간이 ${daysRemaining}일 남았습니다.`,
+      priority: NOTIFICATION_PRIORITY.URGENT,
+    },
+    EXPIRED: {
+      title: '유효기간 만료',
+      body: (productName: string, lotNumber: string) =>
+        `❌ ${productName} (Lot: ${lotNumber})의 유효기간이 만료되었습니다.`,
+      priority: NOTIFICATION_PRIORITY.URGENT,
+    },
+  },
+
+  // System Notifications
+  [NOTIFICATION_TYPE.SYSTEM]: {
+    MAINTENANCE: {
+      title: '시스템 점검 안내',
+      body: (startTime: string, endTime: string) =>
+        `${startTime} ~ ${endTime} 시스템 점검이 예정되어 있습니다.`,
+      priority: NOTIFICATION_PRIORITY.MEDIUM,
+    },
+    UPDATE: {
+      title: '시스템 업데이트',
+      body: (version: string, features: string) =>
+        `시스템이 v${version}으로 업데이트되었습니다.\n${features}`,
+      priority: NOTIFICATION_PRIORITY.LOW,
+    },
+  },
+} as const
+
+// Notification Channels
+export const NOTIFICATION_CHANNEL = {
+  IN_APP: 'IN_APP',
+  EMAIL: 'EMAIL',
+  SMS: 'SMS',
+  PUSH: 'PUSH',
+} as const
+
+export type NotificationChannel = typeof NOTIFICATION_CHANNEL[keyof typeof NOTIFICATION_CHANNEL]
+
+// Default Channel Configuration by Priority
+export const DEFAULT_CHANNELS_BY_PRIORITY = {
+  [NOTIFICATION_PRIORITY.LOW]: [NOTIFICATION_CHANNEL.IN_APP],
+  [NOTIFICATION_PRIORITY.MEDIUM]: [NOTIFICATION_CHANNEL.IN_APP, NOTIFICATION_CHANNEL.EMAIL],
+  [NOTIFICATION_PRIORITY.HIGH]: [NOTIFICATION_CHANNEL.IN_APP, NOTIFICATION_CHANNEL.EMAIL, NOTIFICATION_CHANNEL.PUSH],
+  [NOTIFICATION_PRIORITY.URGENT]: [NOTIFICATION_CHANNEL.IN_APP, NOTIFICATION_CHANNEL.EMAIL, NOTIFICATION_CHANNEL.SMS, NOTIFICATION_CHANNEL.PUSH],
+} as const
+
+// Notification Settings
+export const NOTIFICATION_SETTINGS = {
+  BATCH_SIZE: 100, // Maximum notifications to send in one batch
+  RETRY_ATTEMPTS: 3, // Number of retry attempts for failed notifications
+  RETRY_DELAY_MS: 5000, // Delay between retry attempts
+  EXPIRY_DAYS: 30, // Days before notifications are archived
+  REAL_TIME_ENABLED: true, // Enable real-time notifications
+} as const
+
+// Helper function to create notification
+export function createNotification(
+  type: NotificationType,
+  templateKey: string,
+  params: any[],
+  recipientId: string,
+  channels?: NotificationChannel[]
+) {
+  const template = NOTIFICATION_TEMPLATES[type][templateKey]
+  if (!template) {
+    throw new Error(`Template not found: ${type}.${templateKey}`)
+  }
+
+  const body = typeof template.body === 'function'
+    ? template.body(...params)
+    : template.body
+
+  return {
+    type,
+    title: template.title,
+    body,
+    priority: template.priority,
+    channels: channels || DEFAULT_CHANNELS_BY_PRIORITY[template.priority],
+    recipient_id: recipientId,
+    created_at: new Date().toISOString(),
+    read_at: null,
+    sent_at: null,
+  }
+}
+
+// Usage Examples:
+/*
+// 1. Create recall notification
+const recallNotification = createNotification(
+  NOTIFICATION_TYPE.RECALL,
+  'INITIATED',
+  ['Product A', 'LOT123', '품질 이상'],
+  userId
+)
+
+// 2. Create shipment notification
+const shipmentNotification = createNotification(
+  NOTIFICATION_TYPE.SHIPMENT,
+  'PENDING',
+  ['제조사 A', 100],
+  userId,
+  [NOTIFICATION_CHANNEL.IN_APP, NOTIFICATION_CHANNEL.EMAIL]
+)
+
+// 3. Create expiry warning
+const expiryNotification = createNotification(
+  NOTIFICATION_TYPE.EXPIRY_WARNING,
+  'WARNING_30',
+  ['Product B', 'LOT456', 30],
+  userId
+)
+*/
+
+export default {
+  NOTIFICATION_TYPE,
+  NOTIFICATION_PRIORITY,
+  NOTIFICATION_TEMPLATES,
+  NOTIFICATION_CHANNEL,
+  DEFAULT_CHANNELS_BY_PRIORITY,
+  NOTIFICATION_SETTINGS,
+  createNotification,
+}

@@ -56,6 +56,15 @@ export const ORGANIZATION_TYPE = {
 
 export type OrganizationType = typeof ORGANIZATION_TYPE[keyof typeof ORGANIZATION_TYPE]
 
+// Shipment 상태
+export const SHIPMENT_STATUS = {
+  PENDING: 'PENDING',
+  COMPLETED: 'COMPLETED',
+  CANCELLED: 'CANCELLED',
+} as const
+
+export type ShipmentStatus = typeof SHIPMENT_STATUS[keyof typeof SHIPMENT_STATUS]
+
 // Return Request 상태
 export const RETURN_STATUS = {
   PENDING: 'PENDING',
@@ -808,6 +817,9 @@ export * from './locks'
 // Notifications
 export * from './notifications'
 
+// Defaults (Business Rules)
+export * from './defaults'
+
 // 편의를 위한 그룹 export
 export { VIRTUAL_CODE_STATUS, ORGANIZATION_STATUS, ORGANIZATION_TYPE } from './status'
 export { VIRTUAL_CODE_STATUS_LABELS, ORGANIZATION_STATUS_LABELS, ORGANIZATION_TYPE_LABELS, RETURN_STATUS_LABELS, HISTORY_ACTION_LABELS, getStatusLabel } from './status'
@@ -837,7 +849,8 @@ export {
   MANUFACTURER_SETTINGS_DEFAULTS,  // 신규
 } from './business-logic'
 export { LOCK_CONFIG, LOCK_TYPES, generateLockKey } from './locks'
-export { NOTIFICATION_TYPE, KAKAOTALK_TEMPLATES, RECALL_REASONS, createNotificationMessage, formatNotification } from './notifications'
+export { NOTIFICATION_TYPE, NOTIFICATION_PRIORITY, NOTIFICATION_TEMPLATES, NOTIFICATION_CHANNEL, createNotification } from './notifications'
+export { MANUFACTURER_DEFAULTS, DISTRIBUTOR_DEFAULTS, HOSPITAL_DEFAULTS, SYSTEM_DEFAULTS, BUSINESS_RULES, WORKFLOW_STATES, FEATURE_TOGGLES } from './defaults'
 ```
 
 ---

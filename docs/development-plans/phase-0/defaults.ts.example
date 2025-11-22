@@ -1,0 +1,262 @@
+/**
+ * Business Defaults Constants
+ *
+ * SSOT for all default values and business rules
+ * PRD Reference: Various sections
+ */
+
+// Manufacturer Defaults
+export const MANUFACTURER_DEFAULTS = {
+  // Lot prefix configuration
+  LOT_PREFIX: 'LOT',
+  LOT_NUMBER_SEPARATOR: '-',
+  LOT_NUMBER_DIGITS: 6,
+
+  // Production settings
+  MIN_PRODUCTION_QUANTITY: 1,
+  MAX_PRODUCTION_QUANTITY: 100000,
+  DEFAULT_PRODUCTION_QUANTITY: 100,
+
+  // Expiry settings (in days)
+  DEFAULT_EXPIRY_DAYS: 730, // 2 years
+  MIN_EXPIRY_DAYS: 30,
+  MAX_EXPIRY_DAYS: 3650, // 10 years
+} as const
+
+// Distributor Defaults
+export const DISTRIBUTOR_DEFAULTS = {
+  // Inventory thresholds
+  LOW_STOCK_THRESHOLD: 10,
+  CRITICAL_STOCK_THRESHOLD: 5,
+  REORDER_POINT: 20,
+
+  // Shipment settings
+  MIN_SHIPMENT_QUANTITY: 1,
+  MAX_SHIPMENT_QUANTITY: 10000,
+  DEFAULT_SHIPMENT_QUANTITY: 10,
+
+  // Return settings
+  RETURN_WINDOW_DAYS: 30,
+  MAX_RETURN_PERCENTAGE: 100,
+} as const
+
+// Hospital Defaults
+export const HOSPITAL_DEFAULTS = {
+  // Usage settings
+  MIN_USAGE_QUANTITY: 1,
+  MAX_USAGE_QUANTITY: 100,
+  DEFAULT_USAGE_QUANTITY: 1,
+
+  // Patient record settings
+  PATIENT_ID_LENGTH: 10,
+  TREATMENT_RECORD_RETENTION_DAYS: 1825, // 5 years
+} as const
+
+// System Defaults
+export const SYSTEM_DEFAULTS = {
+  // Pagination
+  DEFAULT_PAGE_SIZE: 20,
+  MAX_PAGE_SIZE: 100,
+  MIN_PAGE_SIZE: 5,
+
+  // Search
+  MIN_SEARCH_LENGTH: 2,
+  MAX_SEARCH_LENGTH: 100,
+  SEARCH_DEBOUNCE_MS: 300,
+
+  // Session
+  SESSION_TIMEOUT_MS: 1800000, // 30 minutes
+  REMEMBER_ME_DAYS: 30,
+  MAX_LOGIN_ATTEMPTS: 5,
+  LOCKOUT_DURATION_MS: 900000, // 15 minutes
+
+  // File uploads
+  MAX_FILE_SIZE_MB: 10,
+  ALLOWED_FILE_TYPES: ['.pdf', '.jpg', '.jpeg', '.png'],
+  MAX_FILES_PER_UPLOAD: 5,
+
+  // Dates
+  DATE_FORMAT: 'yyyy-MM-dd',
+  DATETIME_FORMAT: 'yyyy-MM-dd HH:mm:ss',
+  TIME_FORMAT: 'HH:mm',
+  TIMEZONE: 'Asia/Seoul',
+} as const
+
+// Business Rules
+export const BUSINESS_RULES = {
+  // Recall rules
+  RECALL_WINDOW_HOURS: 24,
+  RECALL_NOTIFICATION_REQUIRED: true,
+  RECALL_APPROVAL_REQUIRED: false,
+
+  // Expiry rules
+  EXPIRY_WARNING_DAYS: 30,
+  EXPIRY_CRITICAL_DAYS: 7,
+  ALLOW_EXPIRED_SHIPMENT: false,
+  ALLOW_EXPIRED_USAGE: false,
+
+  // Virtual Code rules
+  VIRTUAL_CODE_LENGTH: 12,
+  VIRTUAL_CODE_CHARSET: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789',
+  VIRTUAL_CODE_REGENERATION_ATTEMPTS: 5,
+
+  // Organization rules
+  AUTO_APPROVE_ORGANIZATIONS: false,
+  ORGANIZATION_APPROVAL_TIMEOUT_DAYS: 30,
+  REQUIRE_BUSINESS_LICENSE: true,
+
+  // Transaction rules
+  ALLOW_NEGATIVE_INVENTORY: false,
+  REQUIRE_VIRTUAL_CODE_VERIFICATION: true,
+  ENABLE_MULTI_TIER_DISTRIBUTION: true,
+
+  // Audit rules
+  ENABLE_AUDIT_TRAIL: true,
+  AUDIT_RETENTION_DAYS: 2555, // 7 years
+  AUDIT_COMPRESSION_AFTER_DAYS: 365,
+} as const
+
+// Workflow States
+export const WORKFLOW_STATES = {
+  // Shipment workflow
+  SHIPMENT: {
+    INITIAL: 'DRAFT',
+    STATES: ['DRAFT', 'PENDING', 'COMPLETED', 'CANCELLED'],
+    TRANSITIONS: {
+      DRAFT: ['PENDING', 'CANCELLED'],
+      PENDING: ['COMPLETED', 'CANCELLED'],
+      COMPLETED: [],
+      CANCELLED: [],
+    },
+  },
+
+  // Return workflow
+  RETURN: {
+    INITIAL: 'PENDING',
+    STATES: ['PENDING', 'APPROVED', 'REJECTED'],
+    TRANSITIONS: {
+      PENDING: ['APPROVED', 'REJECTED'],
+      APPROVED: [],
+      REJECTED: [],
+    },
+  },
+
+  // Organization workflow
+  ORGANIZATION: {
+    INITIAL: 'PENDING_APPROVAL',
+    STATES: ['PENDING_APPROVAL', 'ACTIVE', 'INACTIVE', 'DELETED'],
+    TRANSITIONS: {
+      PENDING_APPROVAL: ['ACTIVE', 'DELETED'],
+      ACTIVE: ['INACTIVE', 'DELETED'],
+      INACTIVE: ['ACTIVE', 'DELETED'],
+      DELETED: [],
+    },
+  },
+} as const
+
+// Feature Toggles (for gradual rollout)
+export const FEATURE_TOGGLES = {
+  ENABLE_BLOCKCHAIN: false,
+  ENABLE_AI_VERIFICATION: false,
+  ENABLE_MOBILE_APP: false,
+  ENABLE_EXPORT_FUNCTIONALITY: true,
+  ENABLE_BULK_OPERATIONS: true,
+  ENABLE_ADVANCED_ANALYTICS: false,
+  ENABLE_API_ACCESS: false,
+  ENABLE_CUSTOM_REPORTS: false,
+} as const
+
+// Environment-specific Defaults
+export const ENV_DEFAULTS = {
+  DEVELOPMENT: {
+    LOG_LEVEL: 'debug',
+    ENABLE_HOT_RELOAD: true,
+    SHOW_DEBUG_INFO: true,
+    USE_MOCK_DATA: false,
+  },
+  STAGING: {
+    LOG_LEVEL: 'info',
+    ENABLE_HOT_RELOAD: false,
+    SHOW_DEBUG_INFO: true,
+    USE_MOCK_DATA: false,
+  },
+  PRODUCTION: {
+    LOG_LEVEL: 'error',
+    ENABLE_HOT_RELOAD: false,
+    SHOW_DEBUG_INFO: false,
+    USE_MOCK_DATA: false,
+  },
+} as const
+
+// Helper functions
+export function generateLotNumber(sequence: number): string {
+  const paddedNumber = sequence.toString().padStart(MANUFACTURER_DEFAULTS.LOT_NUMBER_DIGITS, '0')
+  return `${MANUFACTURER_DEFAULTS.LOT_PREFIX}${MANUFACTURER_DEFAULTS.LOT_NUMBER_SEPARATOR}${paddedNumber}`
+}
+
+export function isWithinRecallWindow(recallDate: Date): boolean {
+  const now = new Date()
+  const diffHours = (now.getTime() - recallDate.getTime()) / (1000 * 60 * 60)
+  return diffHours <= BUSINESS_RULES.RECALL_WINDOW_HOURS
+}
+
+export function getDaysUntilExpiry(expiryDate: Date): number {
+  const now = new Date()
+  const diffDays = Math.ceil((expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+  return diffDays
+}
+
+export function getExpiryWarningLevel(expiryDate: Date): 'safe' | 'warning' | 'critical' | 'expired' {
+  const daysRemaining = getDaysUntilExpiry(expiryDate)
+
+  if (daysRemaining < 0) return 'expired'
+  if (daysRemaining <= BUSINESS_RULES.EXPIRY_CRITICAL_DAYS) return 'critical'
+  if (daysRemaining <= BUSINESS_RULES.EXPIRY_WARNING_DAYS) return 'warning'
+  return 'safe'
+}
+
+export function canTransitionState(
+  workflowType: keyof typeof WORKFLOW_STATES,
+  fromState: string,
+  toState: string
+): boolean {
+  const workflow = WORKFLOW_STATES[workflowType]
+  const allowedTransitions = workflow.TRANSITIONS[fromState]
+  return allowedTransitions?.includes(toState) || false
+}
+
+// Usage Examples:
+/*
+// 1. Generate lot number
+const lotNumber = generateLotNumber(123)
+// Result: "LOT-000123"
+
+// 2. Check recall window
+const canRecall = isWithinRecallWindow(new Date('2024-01-01'))
+
+// 3. Check expiry warning
+const warningLevel = getExpiryWarningLevel(new Date('2024-12-31'))
+
+// 4. Check workflow transition
+const canApprove = canTransitionState('RETURN', 'PENDING', 'APPROVED')
+// Result: true
+
+// 5. Get environment defaults
+const logLevel = ENV_DEFAULTS[process.env.NODE_ENV || 'DEVELOPMENT'].LOG_LEVEL
+*/
+
+export default {
+  MANUFACTURER_DEFAULTS,
+  DISTRIBUTOR_DEFAULTS,
+  HOSPITAL_DEFAULTS,
+  SYSTEM_DEFAULTS,
+  BUSINESS_RULES,
+  WORKFLOW_STATES,
+  FEATURE_TOGGLES,
+  ENV_DEFAULTS,
+  generateLotNumber,
+  isWithinRecallWindow,
+  getDaysUntilExpiry,
+  getExpiryWarningLevel,
+  canTransitionState,
+}

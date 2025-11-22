@@ -103,6 +103,7 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { SUCCESS_MESSAGES, ERROR_MESSAGES } from '@/constants/messages'
+import { RETURN_STATUS } from '@/constants/status'
 
 const returnRequestSchema = z.object({
   virtual_code: z.string().length(12, 'Virtual Code는 12자리여야 합니다.'),
@@ -225,7 +226,7 @@ export function HospitalReturnRequestPage() {
         lot_id: lotData.lot.id,
         quantity: data.quantity,
         reason: data.reason.trim(),
-        status: 'PENDING',
+        status: RETURN_STATUS.PENDING,
         requested_by: user!.id,
         requested_at: new Date().toISOString(),
       })
@@ -305,16 +306,16 @@ export function HospitalReturnRequestPage() {
                     <TableCell>
                       <Badge
                         className={
-                          request.status === 'PENDING'
+                          request.status === RETURN_STATUS.PENDING
                             ? 'bg-yellow-100 text-yellow-800'
-                            : request.status === 'APPROVED'
+                            : request.status === RETURN_STATUS.APPROVED
                             ? 'bg-green-100 text-green-800'
                             : 'bg-red-100 text-red-800'
                         }
                       >
-                        {request.status === 'PENDING'
+                        {request.status === RETURN_STATUS.PENDING
                           ? '대기중'
-                          : request.status === 'APPROVED'
+                          : request.status === RETURN_STATUS.APPROVED
                           ? '승인됨'
                           : '거부됨'}
                       </Badge>

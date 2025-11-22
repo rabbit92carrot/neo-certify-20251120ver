@@ -57,7 +57,7 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { SUCCESS_MESSAGES, ERROR_MESSAGES } from '@/constants/messages'
-import { ORGANIZATION_TYPE, SHIPMENT_STATUS } from '@/constants/status'
+import { ORGANIZATION_TYPE, ORGANIZATION_STATUS, SHIPMENT_STATUS } from '@/constants/status'
 import type { Product, Organization, Inventory, Lot } from '@/types/database'
 
 interface CartItem {
@@ -101,7 +101,7 @@ export function HospitalShipmentPage() {
         .from('organizations')
         .select('*')
         .eq('type', targetType) // HOSPITAL 또는 DISTRIBUTOR
-        .eq('status', 'approved')
+        .eq('status', ORGANIZATION_STATUS.ACTIVE)
         .order('name')
 
       if (error) throw error
