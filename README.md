@@ -1,228 +1,73 @@
-# 네오인증서 (Neo Certificate System)
+# React + TypeScript + Vite
 
-PDO threads 의료기기 생산-유통-시술 전 과정 추적 및 정품 인증 SaaS 플랫폼
+This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
-## 📋 프로젝트 개요
+Currently, two official plugins are available:
 
-**제조사**: 주식회사 네오닥터
-**버전**: 1.0.0 (MVP)
-**PRD 버전**: 1.2
+- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
+- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
 
-### 핵심 기능
-- 제조사의 생산 관리 및 Lot 추적
-- 유통사의 입출고 관리 (Pending 승인 시스템)
-- 병원의 시술 등록 및 환자 인증 발급
-- 관리자의 전체 이력 조회 및 모니터링
-- 가상 식별코드 기반 FIFO 재고 관리
+## React Compiler
 
-## 🛠 기술 스택
+The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
 
-### Frontend
-- **Framework**: React 18 + TypeScript 5
-- **Build Tool**: Vite
-- **UI Library**: shadcn/ui + Tailwind CSS
-- **State Management**: React Context + TanStack Query
-- **Form**: React Hook Form + Zod
-- **Routing**: React Router v6
-- **Table**: TanStack Table
-- **Date/Time**: date-fns (Asia/Seoul)
+## Expanding the ESLint configuration
 
-### Backend & Database
-- **Database**: Supabase PostgreSQL
-- **Authentication**: Supabase Auth
-- **Storage**: Supabase Storage
-- **Migration Tool**: Supabase CLI
-- **Edge Functions**: Deno
+If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
 
-### Development
-- **Local DB**: Docker Compose (Supabase Stack)
-- **Testing**: Vitest + React Testing Library + Playwright
-- **Linting**: ESLint (Frontend) + Deno Lint (Functions)
-- **Code Quality**: Prettier, TypeScript Strict Mode
+```js
+export default defineConfig([
+  globalIgnores(['dist']),
+  {
+    files: ['**/*.{ts,tsx}'],
+    extends: [
+      // Other configs...
 
-## 🚀 시작하기
+      // Remove tseslint.configs.recommended and replace with this
+      tseslint.configs.recommendedTypeChecked,
+      // Alternatively, use this for stricter rules
+      tseslint.configs.strictTypeChecked,
+      // Optionally, add this for stylistic rules
+      tseslint.configs.stylisticTypeChecked,
 
-### 사전 요구사항
-- Node.js 18+
-- npm 또는 yarn
-- Docker & Docker Compose
-- Supabase CLI
-
-### 설치
-
-```bash
-# 저장소 클론
-git clone https://github.com/rabbit92carrot/neo-certify-20251120ver.git
-cd neo-certify-20251120ver
-
-# 의존성 설치
-npm install
-
-# 환경 변수 설정
-cp .env.example .env.local
-# .env.local 파일을 열어 실제 값으로 수정
-
-# Supabase 로컬 환경 시작
-supabase start
-
-# 개발 서버 시작
-npm run dev
+      // Other configs...
+    ],
+    languageOptions: {
+      parserOptions: {
+        project: ['./tsconfig.node.json', './tsconfig.app.json'],
+        tsconfigRootDir: import.meta.dirname,
+      },
+      // other options...
+    },
+  },
+])
 ```
 
-### Supabase 로컬 개발
+You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
 
-```bash
-# Supabase 로컬 스택 시작
-supabase start
+```js
+// eslint.config.js
+import reactX from 'eslint-plugin-react-x'
+import reactDom from 'eslint-plugin-react-dom'
 
-# 마이그레이션 적용
-supabase db push
-
-# Studio 접속
-# http://localhost:54323
+export default defineConfig([
+  globalIgnores(['dist']),
+  {
+    files: ['**/*.{ts,tsx}'],
+    extends: [
+      // Other configs...
+      // Enable lint rules for React
+      reactX.configs['recommended-typescript'],
+      // Enable lint rules for React DOM
+      reactDom.configs.recommended,
+    ],
+    languageOptions: {
+      parserOptions: {
+        project: ['./tsconfig.node.json', './tsconfig.app.json'],
+        tsconfigRootDir: import.meta.dirname,
+      },
+      // other options...
+    },
+  },
+])
 ```
-
-## 📁 프로젝트 구조
-
-```
-neo-certify-20251120ver/
-├── docs/                      # 개발 계획 및 문서
-│   └── development-plans/     # Phase별 상세 계획서
-├── supabase/                  # Supabase 설정 및 마이그레이션
-│   ├── migrations/            # DB 마이그레이션 파일
-│   └── functions/             # Edge Functions
-├── src/                       # 소스 코드
-│   ├── components/            # React 컴포넌트
-│   ├── pages/                 # 페이지 컴포넌트
-│   ├── constants/             # 전역 상수 (SSOT)
-│   ├── types/                 # TypeScript 타입 정의
-│   ├── lib/                   # 유틸리티 함수
-│   ├── hooks/                 # Custom Hooks
-│   ├── services/              # API 서비스
-│   └── contexts/              # React Context
-└── tests/                     # 테스트 파일
-```
-
-## 🔧 Constants 시스템 빠른 참조
-
-프로젝트의 모든 상수는 `src/constants/`에 체계적으로 정리되어 있습니다 (SSOT 원칙).
-
-| 파일 | 용도 | 주요 상수 | 사용 예시 |
-|------|------|-----------|-----------|
-| `status.ts` | 상태값 및 UI 라벨 | `VIRTUAL_CODE_STATUS`, `ORGANIZATION_STATUS` | `status === VIRTUAL_CODE_STATUS.IN_STOCK` |
-| `roles.ts` | 사용자 역할 및 권한 | `USER_ROLES`, `ROLE_PERMISSIONS` | `role === USER_ROLES.ADMIN` |
-| `routes.ts` | URL 경로 | `API_ENDPOINTS`, `MANUFACTURER_ROUTES` | `navigate(ROUTES.DASHBOARD)` |
-| `messages.ts` | 에러/성공 메시지 템플릿 | `ERROR_MESSAGES`, `SUCCESS_MESSAGES` | `formatErrorMessage('DUPLICATE', field)` |
-| `validation.ts` | 정규식 및 제한값 | `REGEX`, `PASSWORD_RULES`, `FILE_SIZE` | `REGEX.PHONE.test(value)` |
-| `database.ts` ⭐ | DB 테이블/함수/RLS | `TABLES`, `FUNCTIONS`, `RLS_POLICIES` | `supabase.from(TABLES.PRODUCTS)` |
-| `business-logic.ts` ⭐ | 비즈니스 규칙 | `FIFO_SORT`, `VIRTUAL_CODE_FORMAT`, `RECALL_RULES` | `FIFO_SORT.PRIMARY.FIELD` |
-| `locks.ts` ⭐ | 동시성 제어 | `LOCK_TYPES`, `LOCK_TIMEOUTS` | `acquireLock(LOCK_TYPES.INVENTORY)` |
-| `notifications.ts` ⭐ | 알림 템플릿 | `KAKAOTALK_TEMPLATES` | `TEMPLATES.AUTHENTICATION` |
-
-### 빠른 검색 가이드
-
-- **상태값 찾기** → `status.ts`
-- **경로/URL** → `routes.ts`
-- **메시지** → `messages.ts`
-- **정규식** → `validation.ts`
-- **DB 요소** → `database.ts` (테이블명, 함수명, RLS 정책명)
-- **비즈니스 로직** → `business-logic.ts` (FIFO, Virtual Code, Recall)
-- **동시성 제어** → `locks.ts`
-- **알림 템플릿** → `notifications.ts`
-
-### Import 방법
-
-```typescript
-// 개별 import
-import { VIRTUAL_CODE_STATUS } from '@/constants/status'
-import { DATABASE_CONSTANTS } from '@/constants/database'
-import { FIFO_SORT } from '@/constants/business-logic'
-
-// 중앙 import (권장)
-import {
-  VIRTUAL_CODE_STATUS,
-  DATABASE_CONSTANTS,
-  FIFO_SORT,
-} from '@/constants'
-```
-
-### 상세 문서
-
-각 constants 파일에 대한 자세한 설명은 다음 문서를 참조하세요:
-- [Constants 시스템 개요](docs/development-plans/phase-0/phase-0.5-constants-system.md)
-- [Database Constants](docs/development-plans/phase-0/constants-database.md)
-- [Business Logic Constants](docs/development-plans/phase-0/constants-business-logic.md)
-- [Locks Constants](docs/development-plans/phase-0/constants-locks.md)
-- [Notifications Constants](docs/development-plans/phase-0/constants-notifications.md)
-
-## 📖 개발 문서
-
-모든 개발 계획은 `docs/development-plans/` 디렉토리에 Phase별로 정리되어 있습니다.
-
-- [전체 개요](docs/development-plans/00-overview.md)
-- [Phase 0: 프로젝트 기반 구축](docs/development-plans/phase-0/)
-- [Phase 1: 데이터베이스 설계](docs/development-plans/phase-1/)
-- [Phase 2: 인증 및 UI 프레임워크](docs/development-plans/phase-2/)
-- [Phase 3-8: 기능 개발](docs/development-plans/)
-
-## 🎯 개발 원칙
-
-1. **SSOT (Single Source of Truth)**: 모든 상수와 설정은 단일 위치에서 관리
-2. **No Magic Numbers**: 모든 리터럴 값은 상수로 정의
-3. **No 'any' Type**: TypeScript strict mode, unknown + type guard 사용
-4. **Clean Code**: 의미있는 변수명, 함수는 단일 책임
-5. **Test-Driven**: 모든 모듈은 테스트와 함께 개발
-6. **Git Conventional Commits**: 최소 작업 단위마다 의미있는 커밋
-
-자세한 내용은 [DEVELOPMENT_PRINCIPLES.md](DEVELOPMENT_PRINCIPLES.md)를 참조하세요.
-
-## 🧪 테스트
-
-```bash
-# 단위 테스트 실행
-npm run test
-
-# 커버리지 확인
-npm run test:coverage
-
-# E2E 테스트 실행
-npm run test:e2e
-```
-
-## 📝 Git Commit Convention
-
-```
-<type>(<scope>): <subject>
-
-예시:
-feat(auth): 로그인 페이지 구현
-fix(inventory): FIFO 로직 수정
-test(product): 제품 CRUD 테스트 추가
-docs(phase-1): 데이터베이스 설계 문서 작성
-chore(setup): ESLint 설정 추가
-```
-
-**Types**: feat, fix, docs, test, chore, refactor, style
-
-## 🔒 보안
-
-- 민감한 정보는 절대 커밋하지 않습니다 (.env 파일 등)
-- RLS(Row Level Security)를 통한 데이터 접근 제어
-- 사업자등록증 파일은 Supabase Storage에 안전하게 저장
-- XSS, SQL Injection 등 OWASP Top 10 취약점 방어
-
-## 📄 라이선스
-
-Proprietary - 주식회사 네오닥터
-
-## 👥 팀
-
-**개발**: rabbit92carrot
-**문의**: rabbit92carrot@gmail.com
-
-## 📚 참고 자료
-
-- [Supabase 공식 문서](https://supabase.com/docs)
-- [React 공식 문서](https://react.dev)
-- [TypeScript 공식 문서](https://www.typescriptlang.org)
-- [shadcn/ui](https://ui.shadcn.com)
