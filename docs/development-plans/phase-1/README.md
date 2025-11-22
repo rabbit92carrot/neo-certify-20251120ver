@@ -4,7 +4,7 @@
 
 **목표**: Supabase 전체 스키마 완성 및 RLS 설정
 **기간**: 3-5일
-**완료 상태**: ✅ 문서화 완료 (구현 대기)
+**완료 상태**: ✅ 100% 완료 (2025-11-22)
 
 ---
 
@@ -122,10 +122,10 @@ erDiagram
 
 ```sql
 -- 현재 사용자의 organization_id 반환
-auth.user_organization_id()
+public.user_organization_id()
 
 -- 현재 사용자가 관리자인지 확인
-auth.is_admin()
+public.is_admin()
 ```
 
 ### 정책 예시
@@ -135,15 +135,15 @@ auth.is_admin()
 CREATE POLICY "Organizations can view own data"
   ON products FOR SELECT
   USING (
-    organization_id = auth.user_organization_id()
-    OR auth.is_admin()
+    organization_id = public.user_organization_id()
+    OR public.is_admin()
   );
 
 -- Receivers can view PENDING virtual_codes
 CREATE POLICY "Organizations can view pending virtual_codes"
   ON virtual_codes FOR SELECT
   USING (
-    status = 'PENDING' AND pending_to = auth.user_organization_id()
+    status = 'PENDING' AND pending_to = public.user_organization_id()
   );
 ```
 

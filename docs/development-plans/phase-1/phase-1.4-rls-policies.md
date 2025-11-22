@@ -57,27 +57,27 @@ supabase migration new enable_rls_policies
 -- HELPER FUNCTION: Get current user's organization_id
 -- =============================================
 
-CREATE OR REPLACE FUNCTION auth.user_organization_id()
+CREATE OR REPLACE FUNCTION public.user_organization_id()
 RETURNS UUID AS $$
   SELECT organization_id
   FROM users
   WHERE id = auth.uid()
 $$ LANGUAGE SQL SECURITY DEFINER;
 
-COMMENT ON FUNCTION auth.user_organization_id() IS '현재 로그인한 사용자의 organization_id 반환';
+COMMENT ON FUNCTION public.user_organization_id() IS '현재 로그인한 사용자의 organization_id 반환';
 
 -- =============================================
 -- HELPER FUNCTION: Check if user is admin
 -- =============================================
 
-CREATE OR REPLACE FUNCTION auth.is_admin()
+CREATE OR REPLACE FUNCTION public.is_admin()
 RETURNS BOOLEAN AS $$
   SELECT organization_id IS NULL
   FROM users
   WHERE id = auth.uid()
 $$ LANGUAGE SQL SECURITY DEFINER;
 
-COMMENT ON FUNCTION auth.is_admin() IS '현재 사용자가 관리자인지 확인 (organization_id IS NULL)';
+COMMENT ON FUNCTION public.is_admin() IS '현재 사용자가 관리자인지 확인 (organization_id IS NULL)';
 
 -- =============================================
 -- TABLE: organizations - RLS Policies
@@ -89,24 +89,24 @@ ALTER TABLE organizations ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Users can view their own organization"
   ON organizations FOR SELECT
   USING (
-    id = auth.user_organization_id()
-    OR auth.is_admin()
+    id = public.user_organization_id()
+    OR public.is_admin()
   );
 
 -- Policy: Users can update their own organization (except status)
 CREATE POLICY "Users can update their own organization"
   ON organizations FOR UPDATE
-  USING (id = auth.user_organization_id())
-  WITH CHECK (id = auth.user_organization_id());
+  USING (id = public.user_organization_id())
+  WITH CHECK (id = public.user_organization_id());
 
 -- Policy: Admins can view all organizations
--- (Already covered in SELECT policy via auth.is_admin())
+-- (Already covered in SELECT policy via public.is_admin())
 
 -- Policy: Admins can insert/update/delete organizations
 CREATE POLICY "Admins can manage all organizations"
   ON organizations FOR ALL
-  USING (auth.is_admin())
-  WITH CHECK (auth.is_admin());
+  USING (public.is_admin())
+  WITH CHECK (public.is_admin());
 
 -- =============================================
 -- TABLE: users - RLS Policies
@@ -118,8 +118,8 @@ ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Users can view colleagues"
   ON users FOR SELECT
   USING (
-    organization_id = auth.user_organization_id()
-    OR auth.is_admin()
+    organization_id = public.user_organization_id()
+    OR public.is_admin()
   );
 
 -- Policy: Users can update their own profile
@@ -131,8 +131,8 @@ CREATE POLICY "Users can update own profile"
 -- Policy: Admins can manage all users
 CREATE POLICY "Admins can manage all users"
   ON users FOR ALL
-  USING (auth.is_admin())
-  WITH CHECK (auth.is_admin());
+  USING (public.is_admin())
+  WITH CHECK (public.is_admin());
 
 -- =============================================
 -- TABLE: manufacturer_settings - RLS Policies
@@ -144,12 +144,12 @@ ALTER TABLE manufacturer_settings ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Manufacturers can manage own settings"
   ON manufacturer_settings FOR ALL
   USING (
-    organization_id = auth.user_organization_id()
-    OR auth.is_admin()
+    organization_id = public.user_organization_id()
+    OR public.is_admin()
   )
   WITH CHECK (
-    organization_id = auth.user_organization_id()
-    OR auth.is_admin()
+    organization_id = public.user_organization_id()
+    OR public.is_admin()
   );
 
 -- =============================================
@@ -162,12 +162,12 @@ ALTER TABLE products ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Organizations can manage own products"
   ON products FOR ALL
   USING (
-    organization_id = auth.user_organization_id()
-    OR auth.is_admin()
+    organization_id = public.user_organization_id()
+    OR public.is_admin()
   )
   WITH CHECK (
-    organization_id = auth.user_organization_id()
-    OR auth.is_admin()
+    organization_id = public.user_organization_id()
+    OR public.is_admin()
   );
 
 -- =============================================
@@ -183,9 +183,9 @@ CREATE POLICY "Organizations can view own lots"
     EXISTS (
       SELECT 1 FROM products
       WHERE products.id = lots.product_id
-        AND products.organization_id = auth.user_organization_id()
+        AND products.organization_id = public.user_organization_id()
     )
-    OR auth.is_admin()
+    OR public.is_admin()
   );
 
 -- Policy: Manage lots belonging to own products
@@ -195,17 +195,17 @@ CREATE POLICY "Organizations can manage own lots"
     EXISTS (
       SELECT 1 FROM products
       WHERE products.id = lots.product_id
-        AND products.organization_id = auth.user_organization_id()
+        AND products.organization_id = public.user_organization_id()
     )
-    OR auth.is_admin()
+    OR public.is_admin()
   )
   WITH CHECK (
     EXISTS (
       SELECT 1 FROM products
       WHERE products.id = lots.product_id
-        AND products.organization_id = auth.user_organization_id()
+        AND products.organization_id = public.user_organization_id()
     )
-    OR auth.is_admin()
+    OR public.is_admin()
   );
 
 -- =============================================
@@ -218,27 +218,27 @@ ALTER TABLE virtual_codes ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Organizations can view owned virtual_codes"
   ON virtual_codes FOR SELECT
   USING (
-    (owner_type = 'organization' AND owner_id = auth.user_organization_id()::TEXT)
-    OR auth.is_admin()
+    (owner_type = 'organization' AND owner_id = public.user_organization_id()::TEXT)
+    OR public.is_admin()
   );
 
 -- Policy: View PENDING virtual_codes sent to organization
 CREATE POLICY "Organizations can view pending virtual_codes"
   ON virtual_codes FOR SELECT
   USING (
-    status = 'PENDING' AND pending_to = auth.user_organization_id()
+    status = 'PENDING' AND pending_to = public.user_organization_id()
   );
 
 -- Policy: Manage virtual_codes owned by organization
 CREATE POLICY "Organizations can manage owned virtual_codes"
   ON virtual_codes FOR ALL
   USING (
-    (owner_type = 'organization' AND owner_id = auth.user_organization_id()::TEXT)
-    OR auth.is_admin()
+    (owner_type = 'organization' AND owner_id = public.user_organization_id()::TEXT)
+    OR public.is_admin()
   )
   WITH CHECK (
-    (owner_type = 'organization' AND owner_id = auth.user_organization_id()::TEXT)
-    OR auth.is_admin()
+    (owner_type = 'organization' AND owner_id = public.user_organization_id()::TEXT)
+    OR public.is_admin()
   );
 
 -- =============================================
@@ -253,10 +253,10 @@ CREATE POLICY "Hospitals can view patients"
   USING (
     EXISTS (
       SELECT 1 FROM organizations
-      WHERE id = auth.user_organization_id()
+      WHERE id = public.user_organization_id()
         AND type = 'HOSPITAL'
     )
-    OR auth.is_admin()
+    OR public.is_admin()
   );
 
 -- Policy: Hospitals can insert patients (when registering treatment)
@@ -265,17 +265,17 @@ CREATE POLICY "Hospitals can insert patients"
   WITH CHECK (
     EXISTS (
       SELECT 1 FROM organizations
-      WHERE id = auth.user_organization_id()
+      WHERE id = public.user_organization_id()
         AND type = 'HOSPITAL'
     )
-    OR auth.is_admin()
+    OR public.is_admin()
   );
 
 -- Policy: Admins can manage all patients
 CREATE POLICY "Admins can manage all patients"
   ON patients FOR ALL
-  USING (auth.is_admin())
-  WITH CHECK (auth.is_admin());
+  USING (public.is_admin())
+  WITH CHECK (public.is_admin());
 
 -- =============================================
 -- TABLE: history - RLS Policies
@@ -287,18 +287,18 @@ ALTER TABLE history ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Organizations can view related history"
   ON history FOR SELECT
   USING (
-    (from_owner_type = 'organization' AND from_owner_id = auth.user_organization_id()::TEXT)
-    OR (to_owner_type = 'organization' AND to_owner_id = auth.user_organization_id()::TEXT)
-    OR auth.is_admin()
+    (from_owner_type = 'organization' AND from_owner_id = public.user_organization_id()::TEXT)
+    OR (to_owner_type = 'organization' AND to_owner_id = public.user_organization_id()::TEXT)
+    OR public.is_admin()
   );
 
 -- Policy: Insert history where organization is involved
 CREATE POLICY "Organizations can insert related history"
   ON history FOR INSERT
   WITH CHECK (
-    (from_owner_type = 'organization' AND from_owner_id = auth.user_organization_id()::TEXT)
-    OR (to_owner_type = 'organization' AND to_owner_id = auth.user_organization_id()::TEXT)
-    OR auth.is_admin()
+    (from_owner_type = 'organization' AND from_owner_id = public.user_organization_id()::TEXT)
+    OR (to_owner_type = 'organization' AND to_owner_id = public.user_organization_id()::TEXT)
+    OR public.is_admin()
   );
 
 -- Note: UPDATE/DELETE on history typically not allowed (immutable audit log)
@@ -313,12 +313,12 @@ ALTER TABLE treatment_records ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Hospitals can manage own treatment_records"
   ON treatment_records FOR ALL
   USING (
-    hospital_id = auth.user_organization_id()
-    OR auth.is_admin()
+    hospital_id = public.user_organization_id()
+    OR public.is_admin()
   )
   WITH CHECK (
-    hospital_id = auth.user_organization_id()
-    OR auth.is_admin()
+    hospital_id = public.user_organization_id()
+    OR public.is_admin()
   );
 
 -- =============================================
@@ -334,9 +334,9 @@ CREATE POLICY "Hospitals can view own treatment_details"
     EXISTS (
       SELECT 1 FROM treatment_records
       WHERE treatment_records.id = treatment_details.treatment_id
-        AND treatment_records.hospital_id = auth.user_organization_id()
+        AND treatment_records.hospital_id = public.user_organization_id()
     )
-    OR auth.is_admin()
+    OR public.is_admin()
   );
 
 -- Policy: Insert treatment_details for own hospital's treatments
@@ -346,9 +346,9 @@ CREATE POLICY "Hospitals can insert own treatment_details"
     EXISTS (
       SELECT 1 FROM treatment_records
       WHERE treatment_records.id = treatment_details.treatment_id
-        AND treatment_records.hospital_id = auth.user_organization_id()
+        AND treatment_records.hospital_id = public.user_organization_id()
     )
-    OR auth.is_admin()
+    OR public.is_admin()
   );
 
 -- =============================================
@@ -361,29 +361,29 @@ ALTER TABLE return_requests ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Organizations can view related return_requests"
   ON return_requests FOR SELECT
   USING (
-    requester_id = auth.user_organization_id()
-    OR receiver_id = auth.user_organization_id()
-    OR auth.is_admin()
+    requester_id = public.user_organization_id()
+    OR receiver_id = public.user_organization_id()
+    OR public.is_admin()
   );
 
 -- Policy: Requester can create return_requests
 CREATE POLICY "Organizations can create return_requests"
   ON return_requests FOR INSERT
   WITH CHECK (
-    requester_id = auth.user_organization_id()
+    requester_id = public.user_organization_id()
   );
 
 -- Policy: Receiver can update return_requests (approve/reject)
 CREATE POLICY "Receivers can update return_requests"
   ON return_requests FOR UPDATE
-  USING (receiver_id = auth.user_organization_id())
-  WITH CHECK (receiver_id = auth.user_organization_id());
+  USING (receiver_id = public.user_organization_id())
+  WITH CHECK (receiver_id = public.user_organization_id());
 
 -- Policy: Admins can manage all return_requests
 CREATE POLICY "Admins can manage all return_requests"
   ON return_requests FOR ALL
-  USING (auth.is_admin())
-  WITH CHECK (auth.is_admin());
+  USING (public.is_admin())
+  WITH CHECK (public.is_admin());
 
 -- =============================================
 -- TABLE: return_details - RLS Policies
@@ -398,10 +398,10 @@ CREATE POLICY "Organizations can view related return_details"
     EXISTS (
       SELECT 1 FROM return_requests
       WHERE return_requests.id = return_details.return_request_id
-        AND (return_requests.requester_id = auth.user_organization_id()
-             OR return_requests.receiver_id = auth.user_organization_id())
+        AND (return_requests.requester_id = public.user_organization_id()
+             OR return_requests.receiver_id = public.user_organization_id())
     )
-    OR auth.is_admin()
+    OR public.is_admin()
   );
 
 -- Policy: Insert return_details for own return_requests
@@ -411,9 +411,9 @@ CREATE POLICY "Requesters can insert return_details"
     EXISTS (
       SELECT 1 FROM return_requests
       WHERE return_requests.id = return_details.return_request_id
-        AND return_requests.requester_id = auth.user_organization_id()
+        AND return_requests.requester_id = public.user_organization_id()
     )
-    OR auth.is_admin()
+    OR public.is_admin()
   );
 
 -- =============================================
@@ -429,24 +429,24 @@ CREATE POLICY "Hospitals can manage patient notifications"
     EXISTS (
       SELECT 1 FROM treatment_records
       WHERE treatment_records.patient_phone = notification_messages.patient_phone
-        AND treatment_records.hospital_id = auth.user_organization_id()
+        AND treatment_records.hospital_id = public.user_organization_id()
     )
-    OR auth.is_admin()
+    OR public.is_admin()
   )
   WITH CHECK (
     EXISTS (
       SELECT 1 FROM treatment_records
       WHERE treatment_records.patient_phone = notification_messages.patient_phone
-        AND treatment_records.hospital_id = auth.user_organization_id()
+        AND treatment_records.hospital_id = public.user_organization_id()
     )
-    OR auth.is_admin()
+    OR public.is_admin()
   );
 
 -- Policy: Admins can manage all notifications
 CREATE POLICY "Admins can manage all notifications"
   ON notification_messages FOR ALL
-  USING (auth.is_admin())
-  WITH CHECK (auth.is_admin());
+  USING (public.is_admin())
+  WITH CHECK (public.is_admin());
 
 -- =============================================
 -- TABLE: shipments - RLS Policies
@@ -458,29 +458,29 @@ ALTER TABLE shipments ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Organizations can view related shipments"
   ON shipments FOR SELECT
   USING (
-    from_organization_id = auth.user_organization_id()
-    OR to_organization_id = auth.user_organization_id()
-    OR auth.is_admin()
+    from_organization_id = public.user_organization_id()
+    OR to_organization_id = public.user_organization_id()
+    OR public.is_admin()
   );
 
 -- Policy: Only sender organization can create shipments
 CREATE POLICY "Sender can create shipments"
   ON shipments FOR INSERT
   WITH CHECK (
-    from_organization_id = auth.user_organization_id()
+    from_organization_id = public.user_organization_id()
   );
 
 -- Policy: Receiver can update shipment status (approve/reject)
 CREATE POLICY "Receiver can update shipment status"
   ON shipments FOR UPDATE
-  USING (to_organization_id = auth.user_organization_id())
-  WITH CHECK (to_organization_id = auth.user_organization_id());
+  USING (to_organization_id = public.user_organization_id())
+  WITH CHECK (to_organization_id = public.user_organization_id());
 
 -- Policy: Admins can manage all shipments
 CREATE POLICY "Admins can manage all shipments"
   ON shipments FOR ALL
-  USING (auth.is_admin())
-  WITH CHECK (auth.is_admin());
+  USING (public.is_admin())
+  WITH CHECK (public.is_admin());
 
 -- =============================================
 -- TABLE: shipment_details - RLS Policies
@@ -496,11 +496,11 @@ CREATE POLICY "Organizations can view related shipment_details"
       SELECT 1 FROM shipments
       WHERE shipments.id = shipment_details.shipment_id
       AND (
-        shipments.from_organization_id = auth.user_organization_id()
-        OR shipments.to_organization_id = auth.user_organization_id()
+        shipments.from_organization_id = public.user_organization_id()
+        OR shipments.to_organization_id = public.user_organization_id()
       )
     )
-    OR auth.is_admin()
+    OR public.is_admin()
   );
 
 -- Policy: Sender can insert shipment_details
@@ -510,15 +510,15 @@ CREATE POLICY "Sender can insert shipment_details"
     EXISTS (
       SELECT 1 FROM shipments
       WHERE shipments.id = shipment_details.shipment_id
-      AND shipments.from_organization_id = auth.user_organization_id()
+      AND shipments.from_organization_id = public.user_organization_id()
     )
   );
 
 -- Policy: Admins can manage all shipment_details
 CREATE POLICY "Admins can manage all shipment_details"
   ON shipment_details FOR ALL
-  USING (auth.is_admin())
-  WITH CHECK (auth.is_admin());
+  USING (public.is_admin())
+  WITH CHECK (public.is_admin());
 ```
 
 ---
@@ -687,7 +687,7 @@ FROM pg_proc
 WHERE proname IN ('user_organization_id', 'is_admin');
 "
 
-# auth.user_organization_id(), auth.is_admin() 함수 존재 확인
+# public.user_organization_id(), public.is_admin() 함수 존재 확인
 ```
 
 ---
@@ -707,7 +707,7 @@ WHERE proname IN ('user_organization_id', 'is_admin');
 
 ```sql
 -- 1. 현재 사용자 확인
-SELECT auth.uid(), auth.user_organization_id();
+SELECT auth.uid(), public.user_organization_id();
 
 -- 2. 특정 테이블의 RLS 일시 비활성화 (디버깅용)
 ALTER TABLE products DISABLE ROW LEVEL SECURITY;

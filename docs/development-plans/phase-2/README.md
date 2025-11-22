@@ -303,11 +303,11 @@ Phase 2 시작 전, Phase 1의 **30개 RLS 정책**이 올바르게 설정되었
 Supabase SQL Editor에서 실행:
 
 ```sql
--- ✅ auth.user_organization_id() 존재 확인
-SELECT auth.user_organization_id();
+-- ✅ public.user_organization_id() 존재 확인
+SELECT public.user_organization_id();
 
--- ✅ auth.is_admin() 존재 확인
-SELECT auth.is_admin();
+-- ✅ public.is_admin() 존재 확인
+SELECT public.is_admin();
 ```
 
 두 함수가 에러 없이 실행되어야 합니다.
@@ -325,25 +325,25 @@ SELECT * FROM users WHERE id = auth.uid();
 -- 예상: 1 row 반환
 
 -- ❌ 다른 조직 사용자 조회 불가
-SELECT * FROM users WHERE organization_id != auth.user_organization_id();
+SELECT * FROM users WHERE organization_id != public.user_organization_id();
 -- 예상: 0 rows 반환 (또는 에러)
 ```
 
 #### 2.2 Organizations Table (본인 조직 조회)
 ```sql
 -- ✅ 본인 조직 조회 가능
-SELECT * FROM organizations WHERE id = auth.user_organization_id();
+SELECT * FROM organizations WHERE id = public.user_organization_id();
 -- 예상: 1 row 반환
 
 -- ❌ 다른 조직 조회 불가 (admin 아닌 경우)
-SELECT * FROM organizations WHERE id != auth.user_organization_id();
+SELECT * FROM organizations WHERE id != public.user_organization_id();
 -- 예상: 0 rows 반환
 ```
 
 #### 2.3 Products Table (본인 조직 제품 조회)
 ```sql
 -- ✅ 본인 조직 제품 조회 가능
-SELECT * FROM products WHERE organization_id = auth.user_organization_id();
+SELECT * FROM products WHERE organization_id = public.user_organization_id();
 -- 예상: 0+ rows 반환 (데이터 없을 수 있음)
 ```
 
@@ -352,20 +352,20 @@ SELECT * FROM products WHERE organization_id = auth.user_organization_id();
 -- ✅ 본인 소유 virtual_code 조회
 SELECT * FROM virtual_codes
 WHERE owner_type = 'organization'
-  AND owner_id = auth.user_organization_id()::TEXT;
+  AND owner_id = public.user_organization_id()::TEXT;
 
 -- ✅ 본인에게 전송 예정인 PENDING virtual_code 조회 (중요!)
 SELECT * FROM virtual_codes
 WHERE status = 'PENDING'
-  AND pending_to = auth.user_organization_id();
+  AND pending_to = public.user_organization_id();
 ```
 
 #### 2.5 History Table (조회만 가능, 수정 불가)
 ```sql
 -- ✅ 본인 관련 히스토리 조회
 SELECT * FROM history
-WHERE from_owner_id = auth.user_organization_id()::TEXT
-   OR to_owner_id = auth.user_organization_id()::TEXT;
+WHERE from_owner_id = public.user_organization_id()::TEXT
+   OR to_owner_id = public.user_organization_id()::TEXT;
 
 -- ❌ 히스토리 수정 시도 (실패해야 함)
 UPDATE history SET action = 'TEST' WHERE id = 'any-id';
@@ -402,7 +402,7 @@ const { error } = await supabase.storage
 
 Phase 2 시작 전, 아래 항목을 모두 확인하세요:
 
-- [ ] Helper 함수 2개 존재 확인 (`auth.user_organization_id()`, `auth.is_admin()`)
+- [ ] Helper 함수 2개 존재 확인 (`public.user_organization_id()`, `public.is_admin()`)
 - [ ] 일반 사용자: 본인 프로필 조회 가능
 - [ ] 일반 사용자: 본인 조직 정보 조회 가능
 - [ ] 일반 사용자: 다른 조직 데이터 조회 불가

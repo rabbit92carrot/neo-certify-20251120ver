@@ -60,7 +60,7 @@ CREATE POLICY "Organizations can upload own business license"
   ON storage.objects FOR INSERT
   WITH CHECK (
     bucket_id = 'business-licenses'
-    AND auth.user_organization_id()::TEXT = (storage.foldername(name))[1]
+    AND public.user_organization_id()::TEXT = (storage.foldername(name))[1]
   );
 
 -- Policy: Organizations can view their own business license
@@ -69,8 +69,8 @@ CREATE POLICY "Organizations can view own business license"
   USING (
     bucket_id = 'business-licenses'
     AND (
-      auth.user_organization_id()::TEXT = (storage.foldername(name))[1]
-      OR auth.is_admin()
+      public.user_organization_id()::TEXT = (storage.foldername(name))[1]
+      OR public.is_admin()
     )
   );
 
@@ -79,11 +79,11 @@ CREATE POLICY "Organizations can update own business license"
   ON storage.objects FOR UPDATE
   USING (
     bucket_id = 'business-licenses'
-    AND auth.user_organization_id()::TEXT = (storage.foldername(name))[1]
+    AND public.user_organization_id()::TEXT = (storage.foldername(name))[1]
   )
   WITH CHECK (
     bucket_id = 'business-licenses'
-    AND auth.user_organization_id()::TEXT = (storage.foldername(name))[1]
+    AND public.user_organization_id()::TEXT = (storage.foldername(name))[1]
   );
 
 -- Policy: Organizations can delete their own business license
@@ -91,7 +91,7 @@ CREATE POLICY "Organizations can delete own business license"
   ON storage.objects FOR DELETE
   USING (
     bucket_id = 'business-licenses'
-    AND auth.user_organization_id()::TEXT = (storage.foldername(name))[1]
+    AND public.user_organization_id()::TEXT = (storage.foldername(name))[1]
   );
 
 -- Policy: Admins can view all business licenses
@@ -99,16 +99,21 @@ CREATE POLICY "Admins can view all business licenses"
   ON storage.objects FOR SELECT
   USING (
     bucket_id = 'business-licenses'
-    AND auth.is_admin()
+    AND public.is_admin()
   );
 
 -- =============================================
--- COMMENTS
+-- COMMENTS (Documentation Only)
 -- =============================================
 
-COMMENT ON COLUMN storage.buckets.id IS 'Bucket unique identifier';
-COMMENT ON COLUMN storage.buckets.name IS 'Bucket display name';
-COMMENT ON COLUMN storage.buckets.public IS 'Public access (false for business-licenses)';
+-- ⚠️ NOTE: The following COMMENT statements may fail in practice
+-- because storage.buckets is a Supabase system table with restricted permissions.
+-- In the actual migration file, these are omitted and replaced with SQL comments.
+-- Kept here for documentation purposes only.
+
+-- COMMENT ON COLUMN storage.buckets.id IS 'Bucket unique identifier';
+-- COMMENT ON COLUMN storage.buckets.name IS 'Bucket display name';
+-- COMMENT ON COLUMN storage.buckets.public IS 'Public access (false for business-licenses)';
 ```
 
 ---
